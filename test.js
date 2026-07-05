@@ -1,0 +1,245 @@
+/*
+ * test.js - Node smoke test for the data-anonymizer core.
+ * Run: node test.js   (exit 0 = all assertions passed)
+ * No dependencies; exercises every rule in the spec.
+ */
+'use strict';
+
+var parse = require('./src/parse.js');
+var anon = require('./src/anonymize.js');
+var verify = require('./src/verify.js');
+var zipdata = require('./src/zipdata.js');
+
+var passed = 0;
+var failed = 0;
+function ok(cond, msg) {
+  if (cond) { passed++; }
+  else { failed++; console.error('FAIL: ' + msg); }
+}
+function eq(a, b, msg) { ok(a === b, msg + ' (got ' + JSON.stringify(a) + ', want ' + JSON.stringify(b) + ')'); }
+
+// ---------------------------------------------------------------------------
+// SHA-256 known-answer vectors (proves the pure-JS hash is correct).
+// ---------------------------------------------------------------------------
+eq(anon.sha256Hex(''), 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'sha256 empty string');
+eq(anon.sha256Hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', 'sha256 "abc"');
+eq(anon.sha256Hex('The quick brown fox jumps over the lazy dog'),
+  'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592', 'sha256 fox');
+eq(anon.sha256Hex('a').length, 64, 'sha256 returns 64 hex chars');
+
+// ---------------------------------------------------------------------------
+// CSV parse / serialize.
+// ---------------------------------------------------------------------------
+var csv = 'first,last,note\nJohn,Smith,"hello, world"\nJane,"O""Brien",line1\nBob,Jones,plain';
+var parsed = parse.parseCsv(csv);
+eq(parsed.headers.length, 3, 'csv header count');
+eq(parsed.headers[0], 'first', 'csv header 0');
+eq(parsed.rows.length, 3, 'csv row count');
+eq(parsed.rows[0][2], 'hello, world', 'csv quoted comma preserved');
+eq(parsed.rows[1][1], 'O"Brien', 'csv doubled-quote unescaped');
+// Round-trip through serialization.
+var reparsed = parse.parseCsv(parse.toCsv(parsed.headers, parsed.rows));
+eq(reparsed.rows[0][2], 'hello, world', 'csv round-trip quoted comma');
+eq(reparsed.rows[1][1], 'O"Brien', 'csv round-trip doubled quote');
+// BOM + CRLF handling.
+var bomCsv = '﻿a,b\r\n1,2\r\n3,4\r\n';
+var bomP = parse.parseCsv(bomCsv);
+eq(bomP.headers[0], 'a', 'BOM stripped from first header');
+eq(bomP.rows.length, 2, 'CRLF rows parsed');
+
+// ---------------------------------------------------------------------------
+// Column type detection.
+// ---------------------------------------------------------------------------
+eq(parse.detectColumnType(['1', '2', '3']), 'number', 'all numeric -> number');
+eq(parse.detectColumnType(['1', 'x', '3']), 'string', 'mixed -> string');
+eq(parse.detectColumnType(['(555) 111-2222', '333']), 'string', 'phone string -> string');
+eq(parse.detectColumnType(['5551112222', '5553334444']), 'number', 'numeric phone -> number');
+eq(parse.detectColumnType(['', '  ', '']), 'string', 'all blank -> string');
+eq(parse.detectColumnType(['-3.5', '4', '.5']), 'number', 'signed/decimal -> number');
+
+// ---------------------------------------------------------------------------
+// Name splitting.
+// ---------------------------------------------------------------------------
+var cf = anon.splitCommaFirst('Smith, John');
+eq(cf.last, 'Smith', 'comma-first last'); eq(cf.first, 'John', 'comma-first first');
+var cf2 = anon.splitCommaFirst('  Van Damme ,  Jean Claude ');
+eq(cf2.last, 'Van Damme', 'comma-first strips + keeps spaces in last');
+eq(cf2.first, 'Jean Claude', 'comma-first strips first');
+var fl = anon.splitFirstLast('John Smith');
+eq(fl.first, 'John', 'first-last first'); eq(fl.last, 'Smith', 'first-last last');
+var fl2 = anon.splitFirstLast('Mary Anne Smith');
+eq(fl2.first, 'Mary', 'first-last first token'); eq(fl2.last, 'Anne Smith', 'first-last remainder');
+
+// ---------------------------------------------------------------------------
+// DOB normalization (different formats collapse to one person).
+// ---------------------------------------------------------------------------
+eq(anon.normalizeDob('1/1/2000'), '20000101', 'dob M/D/YYYY');
+eq(anon.normalizeDob('01/01/2000'), '20000101', 'dob 0-padded matches');
+eq(anon.normalizeDob('2000-01-01'), '20000101', 'dob ISO');
+eq(anon.normalizeDob('12/31/1999'), '19991231', 'dob end of year');
+
+// ---------------------------------------------------------------------------
+// anon_key: deterministic, hashed (not the raw key), same identity -> same key.
+// ---------------------------------------------------------------------------
+var idA = anon.deriveIdentity(['John', 'Smith', '1/1/2000'], { first_name: 0, last_name: 1, date_of_birth: 2 });
+eq(idA.firstName, 'John', 'derive first'); eq(idA.lastName, 'Smith', 'derive last');
+eq(anon.anonKeyRaw(idA), 'johsmi20000101', 'raw key composition');
+var keyA = anon.anonKey(idA);
+eq(keyA.length, 16, 'anon_key length 16');
+ok(/^[0-9a-f]{16}$/.test(keyA), 'anon_key is lowercase hex');
+ok(keyA !== 'johsmi20000101', 'anon_key is not the raw key (non-reversible at a glance)');
+ok(keyA.indexOf('joh') === -1 && keyA.indexOf('smi') === -1, 'anon_key hides name fragments');
+// Same person via a different DOB format -> same key.
+var idA2 = anon.deriveIdentity(['John', 'Smith', '2000-01-01'], { first_name: 0, last_name: 1, date_of_birth: 2 });
+eq(anon.anonKey(idA2), keyA, 'same person different dob format -> same key');
+// Full-name-comma-first satisfies first + last and yields the same key.
+var idA3 = anon.deriveIdentity(['Smith, John', '1/1/2000'], { full_name_last_first: 0, date_of_birth: 1 });
+eq(anon.anonKey(idA3), keyA, 'full name (last, first) -> same key');
+// Full-name-first-last too.
+var idA4 = anon.deriveIdentity(['John Smith', '1/1/2000'], { full_name_first_last: 0, date_of_birth: 1 });
+eq(anon.anonKey(idA4), keyA, 'full name (first last) -> same key');
+// Different person -> different key.
+var idB = anon.deriveIdentity(['Jane', 'Doe', '5/5/1990'], { first_name: 0, last_name: 1, date_of_birth: 2 });
+ok(anon.anonKey(idB) !== keyA, 'different person -> different key');
+
+// ---------------------------------------------------------------------------
+// Mapping validation (collect-all).
+// ---------------------------------------------------------------------------
+eq(anon.validateMapping({ first_name: 0, last_name: 1, date_of_birth: 2 }).length, 0, 'valid mapping no errors');
+ok(anon.validateMapping({ first_name: 0, last_name: 1 }).length === 1, 'missing dob flagged');
+ok(anon.validateMapping({ date_of_birth: 2 }).length === 2, 'missing first+last flagged');
+eq(anon.validateMapping({ full_name_first_last: 0, date_of_birth: 1 }).length, 0, 'full name satisfies first+last');
+ok(anon.validateMapping({ full_name_first_last: 0, full_name_last_first: 1, date_of_birth: 2 }).length >= 1, 'both full names flagged');
+ok(anon.validateMapping({ first_name: 0, last_name: 0, date_of_birth: 1 }).length >= 1, 'double-mapped column flagged');
+
+// ---------------------------------------------------------------------------
+// Fake data generation: consistent per person, correct fixed values.
+// ---------------------------------------------------------------------------
+var terms = ['first_name', 'last_name', 'special_number', 'phone_1', 'phone_2', 'address_line_1', 'city', 'state', 'zip_code', 'county', 'country'];
+var f1 = anon.buildFakePerson(keyA, terms, { phone_1: 'string', phone_2: 'number' });
+var f1b = anon.buildFakePerson(keyA, terms, { phone_1: 'string', phone_2: 'number' });
+eq(f1.first_name, f1b.first_name, 'same key -> same fake first name');
+eq(f1.city, f1b.city, 'same key -> same fake city');
+eq(f1.special_number, '***-**-****', 'special number masked');
+eq(f1.phone_1, '(555) 555-5555', 'string phone -> formatted');
+eq(f1.phone_2, '5555555555', 'numeric phone -> digits');
+ok(f1.first_name !== 'John', 'fake first name differs from real');
+// Address internal consistency: the fake zip must match its record's state/county/country.
+var zmatch = zipdata.ZIPS.filter(function (z) { return z.zip === f1.zip_code; })[0];
+ok(zmatch != null, 'fake zip exists in table');
+eq(f1.state, zmatch.state, 'fake state matches fake zip');
+eq(f1.county, zmatch.county, 'fake county matches fake zip');
+eq(f1.country, zmatch.country, 'fake country matches fake zip');
+eq(f1.city, zmatch.city, 'fake city matches fake zip');
+// A different person gets (very likely) different fakes.
+var f2 = anon.buildFakePerson(anon.anonKey(idB), terms, {});
+ok(f2.zip_code !== undefined, 'second person has a zip');
+
+// ---------------------------------------------------------------------------
+// Full dataset anonymize + round-trip verify.
+// Build a dataset where the same person appears in multiple rows.
+// ---------------------------------------------------------------------------
+var headers = ['First', 'Last', 'DOB', 'SSN', 'Phone', 'Zip', 'State', 'Amount'];
+var rows = [
+  ['John', 'Smith', '1/1/2000', '123-45-6789', '(212) 555-1000', '10001', 'NY', '100'],
+  ['Jane', 'Doe', '5/5/1990', '987-65-4321', '(305) 555-2000', '33101', 'FL', '200'],
+  ['John', 'Smith', '1/1/2000', '123-45-6789', '(212) 555-1000', '10001', 'NY', '350'], // same person as row 0
+  ['Bob', 'Jones', '7/4/1985', '555-11-2222', '(415) 555-3000', '94103', 'CA', '75']
+];
+var mapping = { first_name: 0, last_name: 1, date_of_birth: 2, special_number: 3, phone_1: 4, zip_code: 5, state: 6 };
+var colTypes = parse.detectColumnTypes(headers, rows, 100);
+var result = anon.anonymizeDataset({ headers: headers, rows: rows }, mapping, colTypes);
+
+eq(result.anon.headers[result.anon.headers.length - 1], 'anon_key', 'anon file has anon_key column');
+eq(result.original.headers[result.original.headers.length - 1], 'anon_key', 'original file has anon_key column');
+eq(result.anon.rows.length, 4, 'anon row count preserved');
+eq(result.stats.uniquePersons, 3, 'three unique persons (John twice)');
+
+// John's two rows share an anon_key and identical fake data.
+eq(result.anon.rows[0][8], result.anon.rows[2][8], 'same person same anon_key across rows');
+eq(result.anon.rows[0][0], result.anon.rows[2][0], 'same person same fake first name across rows');
+eq(result.anon.rows[0][4], result.anon.rows[2][4], 'same person same fake phone across rows');
+ok(result.anon.rows[0][8] !== result.anon.rows[1][8], 'different persons different anon_key');
+
+// Mapped columns were replaced; unmapped column (Amount) is untouched.
+ok(result.anon.rows[0][0] !== 'John', 'first name replaced in anon output');
+eq(result.anon.rows[0][3], '***-**-****', 'ssn masked in anon output');
+eq(result.anon.rows[0][7], '100', 'unmapped Amount column untouched');
+// Phone column here is a string dtype -> formatted fake.
+eq(result.anon.rows[0][4], '(555) 555-5555', 'string phone column -> formatted fake');
+// Original output preserves the real data.
+eq(result.original.rows[0][0], 'John', 'original output keeps real first name');
+eq(result.original.rows[0][3], '123-45-6789', 'original output keeps real ssn');
+
+// Round-trip verification must PASS.
+var vr = verify.roundTripVerify(rows, result.original, result.anon);
+ok(vr.pass, 'round-trip verify passes on clean data');
+eq(vr.rowCount, 4, 'verify row count');
+
+// Numeric phone column -> digit fake.
+var headers2 = ['First', 'Last', 'DOB', 'Cell'];
+var rows2 = [['Amy', 'Lee', '3/3/1979', '2125551234']];
+var mapping2 = { first_name: 0, last_name: 1, date_of_birth: 2, phone_1: 3 };
+var ct2 = parse.detectColumnTypes(headers2, rows2, 10);
+var res2 = anon.anonymizeDataset({ headers: headers2, rows: rows2 }, mapping2, ct2);
+eq(res2.anon.rows[0][3], '5555555555', 'numeric phone column -> digit fake');
+
+// ---------------------------------------------------------------------------
+// Collision detection: two distinct people sharing first3+last3+DOB.
+// "Jon Smitherton" and "John Smith" both -> jon/joh? No: first3 differ (jon vs joh).
+// Use two genuinely-colliding distinct names: "Johnny Smithly" vs "Johnathan Smithson"
+// both -> joh + smi + same DOB, but full names differ.
+// ---------------------------------------------------------------------------
+var cHeaders = ['Name', 'DOB'];
+var cRows = [
+  ['Johnny Smithly', '1/1/2000'],
+  ['Johnathan Smithson', '1/1/2000']
+];
+var cMapping = { full_name_first_last: 0, date_of_birth: 1 };
+var cRes = anon.anonymizeDataset({ headers: cHeaders, rows: cRows }, cMapping, {});
+eq(cRes.stats.collisionCount, 1, 'collision bucket detected for same first3+last3+dob distinct names');
+eq(cRes.stats.collidedPeople, 2, 'two people counted in the collided bucket');
+ok(cRes.stats.collisionsResolved, 'collision flagged as resolved');
+eq(cRes.stats.uniquePersons, 2, 'two distinct people after resolution (not collapsed to 1)');
+// The two colliding people must now get DIFFERENT anon_keys...
+var keyCol = cRes.anon.headers.length - 1;
+var k0 = cRes.anon.rows[0][keyCol];
+var k1 = cRes.anon.rows[1][keyCol];
+ok(k0 !== k1, 'collision resolved: two people get different anon_keys');
+// ...that share the same 16-hex base bucket with distinct ordinal suffixes.
+eq(k0.slice(0, 16), k1.slice(0, 16), 'both resolved keys share the base bucket');
+ok(/-\d{2}$/.test(k0) && /-\d{2}$/.test(k1), 'resolved keys carry an ordinal suffix');
+// ...and DIFFERENT fake data (seeded by full identity, not the base bucket).
+ok(cRes.anon.rows[0][0] !== cRes.anon.rows[1][0], 'colliding people get different fake data');
+// Suffix assignment is stable regardless of row order.
+var cResRev = anon.anonymizeDataset({ headers: cHeaders, rows: [cRows[1], cRows[0]] }, cMapping, {});
+eq(cResRev.anon.rows[1][keyCol], k0, 'suffix stable when rows are reversed (person keeps their key)');
+// No-collision datasets carry NO suffix (clean base key).
+ok(!/-\d{2}$/.test(result.anon.rows[0][8]), 'non-colliding key has no suffix');
+// Even with a collision, round-trip still reclaims original (files are row-aligned).
+var cvr = verify.roundTripVerify(cRows, cRes.original, cRes.anon);
+ok(cvr.pass, 'round-trip still passes with resolved collisions');
+
+// Verify catches a tampered file (negative test).
+var tampered = { headers: result.original.headers, rows: result.original.rows.map(function (r) { return r.slice(); }) };
+tampered.rows[0][0] = 'CORRUPTED';
+var badVr = verify.roundTripVerify(rows, tampered, result.anon);
+ok(!badVr.pass, 'verify fails when original file is tampered');
+
+// ---------------------------------------------------------------------------
+// No em-dashes anywhere in shipped source (copy rule).
+// ---------------------------------------------------------------------------
+var fs = require('fs');
+var files = ['src/parse.js', 'src/anonymize.js', 'src/verify.js', 'src/zipdata.js', 'test.js'];
+files.forEach(function (fp) {
+  var content = fs.readFileSync(__dirname + '/' + fp, 'utf8');
+  var emDash = String.fromCharCode(0x2014);
+  ok(content.indexOf(emDash) === -1, 'no em-dash in ' + fp);
+});
+
+// ---------------------------------------------------------------------------
+console.log('');
+console.log('Assertions passed: ' + passed);
+console.log('Assertions failed: ' + failed);
+if (failed > 0) { process.exit(1); }
+console.log('ALL PASS');

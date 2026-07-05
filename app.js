@@ -1,0 +1,420 @@
+/*
+ * app.js - UI orchestration for the Data Anonymizer.
+ * Wizard: upload -> (sheet) -> map columns -> verify -> download.
+ * All work is client-side. Heavy work runs in worker.js.
+ */
+(function () {
+  'use strict';
+
+  var TERMS = DAAnon.TERMS;
+  var TERM_LABELS = DAAnon.TERM_LABELS;
+  var REQUIRED_HINT = { first_name: true, last_name: true, date_of_birth: true };
+
+  var state = {
+    fileBaseName: 'data',
+    headers: [],
+    sampleRows: [],
+    csvText: '',
+    result: null
+  };
+
+  var el = {
+    stepIndicator: document.getElementById('stepIndicator'),
+    errorAlert: document.getElementById('errorAlert'),
+    errorList: document.getElementById('errorList'),
+    fileInput: document.getElementById('fileInput'),
+    dropzone: document.getElementById('dropzone'),
+    sheetChoices: document.getElementById('sheetChoices'),
+    mapGrid: document.getElementById('mapGrid'),
+    runBtn: document.getElementById('runBtn'),
+    progressText: document.getElementById('progressText'),
+    verdict: document.getElementById('verdict'),
+    stats: document.getElementById('stats'),
+    previewTable: document.getElementById('previewTable'),
+    downloads: document.getElementById('downloads'),
+    restartBtn: document.getElementById('restartBtn')
+  };
+
+  var PANELS = ['upload', 'sheet', 'map', 'verify', 'download'];
+
+  function show(step) {
+    PANELS.forEach(function (p) {
+      var panel = document.getElementById('panel-' + p);
+      if (panel) panel.hidden = p !== step;
+    });
+    // Step indicator state.
+    var order = PANELS;
+    var activeIdx = order.indexOf(step);
+    Array.prototype.forEach.call(el.stepIndicator.children, function (li, i) {
+      li.classList.remove('active', 'done');
+      if (i < activeIdx) li.classList.add('done');
+      else if (i === activeIdx) li.classList.add('active');
+    });
+  }
+
+  function showErrors(list) {
+    if (!list || !list.length) {
+      el.errorAlert.hidden = true;
+      el.errorList.innerHTML = '';
+      return;
+    }
+    el.errorList.innerHTML = '';
+    list.forEach(function (msg) {
+      var li = document.createElement('li');
+      li.textContent = msg;
+      el.errorList.appendChild(li);
+    });
+    el.errorAlert.hidden = false;
+    el.errorAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function baseName(fileName) {
+    return fileName.replace(/\.[^.]+$/, '');
+  }
+
+  // -------------------------------------------------------------------------
+  // Upload handling.
+  // -------------------------------------------------------------------------
+  function handleFile(file) {
+    showErrors([]);
+    state.fileBaseName = baseName(file.name);
+    var lower = file.name.toLowerCase();
+    if (lower.slice(-4) === '.csv') {
+      var reader = new FileReader();
+      reader.onload = function () {
+        state.csvText = String(reader.result);
+        goToMapping();
+      };
+      reader.onerror = function () { showErrors(['Could not read the file.']); };
+      reader.readAsText(file);
+    } else if (lower.slice(-5) === '.xlsx' || lower.slice(-4) === '.xls') {
+      var r2 = new FileReader();
+      r2.onload = function () {
+        try {
+          var wb = XLSX.read(new Uint8Array(r2.result), { type: 'array' });
+          if (!wb.SheetNames.length) { showErrors(['This workbook has no sheets.']); return; }
+          if (wb.SheetNames.length === 1) {
+            state.csvText = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
+            goToMapping();
+          } else {
+            offerSheets(wb);
+          }
+        } catch (err) {
+          showErrors(['Could not read the Excel file: ' + (err.message || err)]);
+        }
+      };
+      r2.onerror = function () { showErrors(['Could not read the file.']); };
+      r2.readAsArrayBuffer(file);
+    } else {
+      showErrors(['Unsupported file type. Use a .csv, .xlsx, or .xls file.']);
+    }
+  }
+
+  function offerSheets(wb) {
+    el.sheetChoices.innerHTML = '';
+    wb.SheetNames.forEach(function (name) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'seg';
+      b.textContent = name;
+      b.addEventListener('click', function () {
+        state.csvText = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+        goToMapping();
+      });
+      el.sheetChoices.appendChild(b);
+    });
+    show('sheet');
+  }
+
+  // -------------------------------------------------------------------------
+  // Mapping.
+  // -------------------------------------------------------------------------
+  function goToMapping() {
+    // Parse just headers and a few sample rows for the preview + type hints.
+    var parsedHead = DAParse.parseCsv(firstLines(state.csvText, 8));
+    state.headers = parsedHead.headers;
+    state.sampleRows = parsedHead.rows;
+    if (!state.headers.length) {
+      showErrors(['The file appears to be empty or has no header row.']);
+      show('upload');
+      return;
+    }
+    buildMapGrid();
+    show('map');
+  }
+
+  function firstLines(text, n) {
+    var count = 0;
+    var i = 0;
+    for (; i < text.length && count < n; i++) {
+      if (text[i] === '\n') count++;
+    }
+    return text.slice(0, i);
+  }
+
+  function sampleFor(colIdx) {
+    for (var r = 0; r < state.sampleRows.length; r++) {
+      var v = state.sampleRows[r][colIdx];
+      if (v != null && String(v).trim() !== '') return String(v);
+    }
+    return '';
+  }
+
+  function buildMapGrid() {
+    el.mapGrid.innerHTML = '';
+    TERMS.forEach(function (term) {
+      var row = document.createElement('div');
+      row.className = 'map-row';
+      row.dataset.term = term;
+
+      var label = document.createElement('div');
+      label.className = 'map-label';
+      var span = document.createElement('span');
+      span.textContent = TERM_LABELS[term];
+      label.appendChild(span);
+      if (REQUIRED_HINT[term]) {
+        var badge = document.createElement('span');
+        badge.className = 'req-badge';
+        badge.textContent = 'required';
+        label.appendChild(badge);
+      }
+
+      var select = document.createElement('select');
+      select.dataset.term = term;
+      var optNone = document.createElement('option');
+      optNone.value = '';
+      optNone.textContent = 'Not assigned';
+      select.appendChild(optNone);
+      state.headers.forEach(function (h, idx) {
+        var opt = document.createElement('option');
+        opt.value = String(idx);
+        var sample = sampleFor(idx);
+        opt.textContent = (h || ('Column ' + (idx + 1))) + (sample ? '  (e.g. ' + truncate(sample, 22) + ')' : '');
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', liveValidate);
+
+      row.appendChild(label);
+      row.appendChild(select);
+      el.mapGrid.appendChild(row);
+    });
+    liveValidate();
+  }
+
+  function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+  function readMapping() {
+    var mapping = {};
+    Array.prototype.forEach.call(el.mapGrid.querySelectorAll('select'), function (sel) {
+      if (sel.value !== '') mapping[sel.dataset.term] = parseInt(sel.value, 10);
+    });
+    return mapping;
+  }
+
+  function liveValidate() {
+    var mapping = readMapping();
+    var errors = DAAnon.validateMapping(mapping);
+    // Mark satisfied rows (green) for required-ish terms.
+    var hasFull = mapping.full_name_last_first != null || mapping.full_name_first_last != null;
+    Array.prototype.forEach.call(el.mapGrid.querySelectorAll('.map-row'), function (row) {
+      var term = row.dataset.term;
+      var satisfied = mapping[term] != null ||
+        ((term === 'first_name' || term === 'last_name') && hasFull);
+      row.classList.toggle('satisfied', satisfied);
+    });
+    el.runBtn.disabled = errors.length > 0;
+    showErrors(errors);
+    return errors;
+  }
+
+  // -------------------------------------------------------------------------
+  // Run (worker) + results.
+  // -------------------------------------------------------------------------
+  function run() {
+    var mapping = readMapping();
+    var errors = DAAnon.validateMapping(mapping);
+    if (errors.length) { showErrors(errors); return; }
+    showErrors([]);
+    show('verify');
+    el.progressText.textContent = 'Starting';
+
+    var worker = new Worker('worker.js');
+    worker.onmessage = function (e) {
+      var msg = e.data || {};
+      if (msg.type === 'progress') {
+        el.progressText.textContent = msg.stage;
+      } else if (msg.type === 'done') {
+        state.result = msg;
+        worker.terminate();
+        renderResults(msg);
+      } else if (msg.type === 'error') {
+        worker.terminate();
+        show('map');
+        showErrors(['Processing failed: ' + msg.message]);
+      }
+    };
+    worker.onerror = function (err) {
+      worker.terminate();
+      show('map');
+      showErrors(['Worker error: ' + (err.message || 'unknown')]);
+    };
+    worker.postMessage({ type: 'run', csvText: state.csvText, mapping: mapping });
+  }
+
+  function renderResults(msg) {
+    var vr = msg.verify;
+    var stats = msg.stats;
+
+    // Verdict banner.
+    el.verdict.className = 'verdict ' + (vr.pass ? 'pass' : 'fail');
+    if (vr.pass) {
+      el.verdict.innerHTML = 'Round-trip verification passed. ' +
+        'The two files merge back on <code>anon_key</code> to reproduce the original data exactly.' +
+        '<small>Checks: ' + vr.checks.map(function (c) { return c.name; }).join(' | ') + '</small>';
+    } else {
+      var failed = vr.checks.filter(function (c) { return !c.ok; });
+      el.verdict.innerHTML = 'Round-trip verification FAILED. Downloads are disabled so you do not ship bad files.' +
+        '<small>' + (failed.length ? failed.map(function (c) { return c.name + ': ' + c.detail; }).join(' | ') : 'See console.') + '</small>';
+    }
+
+    // Stats.
+    el.stats.innerHTML = '';
+    addStat(stats.rowCount, 'Rows');
+    addStat(stats.uniquePersons, 'Unique people');
+    addStat(stats.assignedTerms.length, 'Fields anonymized');
+    addStat(stats.collisionCount, 'Collisions resolved', stats.collisionCount > 0);
+
+    // Explain collision resolution when it happened.
+    var existingNote = document.getElementById('collisionNote');
+    if (existingNote) existingNote.remove();
+    if (stats.collisionCount > 0) {
+      var note = document.createElement('p');
+      note.id = 'collisionNote';
+      note.className = 'note';
+      note.textContent = stats.collidedPeople + ' people fell into ' + stats.collisionCount +
+        ' shared key bucket(s) (same first 3 letters, last 3 letters, and date of birth). ' +
+        'They were kept distinct by their full name and given ordinal suffixes (for example -01, -02) ' +
+        'plus separate fake records, so no two people were merged.';
+      el.stats.parentNode.insertBefore(note, el.stats.nextSibling);
+    }
+
+    // Preview table (original vs anonymized).
+    renderPreview(msg.previewCols, msg.preview);
+
+    // Downloads.
+    el.downloads.innerHTML = '';
+    var anonName = state.fileBaseName + '_anonymized.csv';
+    var origName = state.fileBaseName + '_original_with_key.csv';
+    addDownload(anonName, 'Fake data in place of personal details, plus the anon_key column.', msg.anonCsv, vr.pass);
+    addDownload(origName, 'Your original data with the matching anon_key column added.', msg.originalCsv, vr.pass);
+
+    show('download');
+  }
+
+  function addStat(num, lbl, warn) {
+    var d = document.createElement('div');
+    d.className = 'stat' + (warn ? ' warn' : '');
+    d.innerHTML = '<div class="num">' + num + '</div><div class="lbl">' + lbl + '</div>';
+    el.stats.appendChild(d);
+  }
+
+  function renderPreview(cols, preview) {
+    var t = el.previewTable;
+    t.innerHTML = '';
+    var thead = document.createElement('thead');
+    var htr = document.createElement('tr');
+    var corner = document.createElement('th');
+    corner.textContent = '';
+    htr.appendChild(corner);
+    cols.forEach(function (c) {
+      var th = document.createElement('th');
+      th.textContent = c;
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    t.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    preview.forEach(function (pair) {
+      appendPreviewRow(tbody, 'Original', pair.original, null);
+      appendPreviewRow(tbody, 'Anonymized', pair.anon, pair.original);
+    });
+    t.appendChild(tbody);
+  }
+
+  function appendPreviewRow(tbody, label, cells, compareTo) {
+    var tr = document.createElement('tr');
+    var lab = document.createElement('td');
+    lab.className = 'rowlabel';
+    lab.textContent = label;
+    tr.appendChild(lab);
+    cells.forEach(function (val, i) {
+      var td = document.createElement('td');
+      td.textContent = val == null ? '' : val;
+      if (compareTo && String(compareTo[i]) !== String(val)) td.className = 'changed';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+
+  function addDownload(fileName, desc, csvText, enabled) {
+    var card = document.createElement('div');
+    card.className = 'dl-card';
+    var fn = document.createElement('div');
+    fn.className = 'fname';
+    fn.textContent = fileName;
+    var d = document.createElement('div');
+    d.className = 'desc';
+    d.textContent = desc;
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-primary';
+    btn.textContent = 'Download';
+    btn.disabled = !enabled;
+    btn.addEventListener('click', function () { downloadCsv(fileName, csvText); });
+    card.appendChild(fn);
+    card.appendChild(d);
+    card.appendChild(btn);
+    el.downloads.appendChild(card);
+  }
+
+  function downloadCsv(fileName, text) {
+    var blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function restart() {
+    state.result = null;
+    state.csvText = '';
+    el.fileInput.value = '';
+    showErrors([]);
+    show('upload');
+  }
+
+  // -------------------------------------------------------------------------
+  // Wiring.
+  // -------------------------------------------------------------------------
+  el.fileInput.addEventListener('change', function () {
+    if (el.fileInput.files && el.fileInput.files[0]) handleFile(el.fileInput.files[0]);
+  });
+  el.dropzone.addEventListener('dragover', function (e) { e.preventDefault(); el.dropzone.classList.add('drag'); });
+  el.dropzone.addEventListener('dragleave', function () { el.dropzone.classList.remove('drag'); });
+  el.dropzone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    el.dropzone.classList.remove('drag');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  el.runBtn.addEventListener('click', run);
+  el.restartBtn.addEventListener('click', restart);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-goto]'), function (b) {
+    b.addEventListener('click', function () { show(b.dataset.goto); });
+  });
+
+  show('upload');
+})();

@@ -1,0 +1,12 @@
+# Dependencies (none shipped; guard anyway)
+node_modules/
+
+# GTM / internal assets kept off the public repo
+PRD.md
+posts/
+publish-guide.html
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,7 @@
+first_name,last_name,dob,ssn,phone,address,city,state,zip,balance
+John,Smith,1/1/2000,123-45-6789,(212) 555-1000,123 Main St,New York,NY,10001,1500.00
+Jane,Doe,5/5/1990,987-65-4321,(305) 555-2000,45 Ocean Dr,Miami,FL,33101,2200.50
+John,Smith,1/1/2000,123-45-6789,(212) 555-1000,123 Main St,New York,NY,10001,3100.00
+Robert,Johnson,7/4/1985,555-11-2222,(415) 555-3000,9 Market St,San Francisco,CA,94103,750.25
+Johnny,Smithly,3/3/1970,111-22-3333,(312) 555-4000,1 State St,Chicago,IL,60601,900.00
+Johnathan,Smithson,3/3/1970,444-55-6666,(312) 555-5000,2 State St,Chicago,IL,60601,1200.00
