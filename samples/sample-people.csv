@@ -1,7 +1,151 @@
-first_name,last_name,dob,ssn,phone,address,city,state,zip,balance
-John,Smith,1/1/2000,123-45-6789,(212) 555-1000,123 Main St,New York,NY,10001,1500.00
-Jane,Doe,5/5/1990,987-65-4321,(305) 555-2000,45 Ocean Dr,Miami,FL,33101,2200.50
-John,Smith,1/1/2000,123-45-6789,(212) 555-1000,123 Main St,New York,NY,10001,3100.00
-Robert,Johnson,7/4/1985,555-11-2222,(415) 555-3000,9 Market St,San Francisco,CA,94103,750.25
-Johnny,Smithly,3/3/1970,111-22-3333,(312) 555-4000,1 State St,Chicago,IL,60601,900.00
-Johnathan,Smithson,3/3/1970,444-55-6666,(312) 555-5000,2 State St,Chicago,IL,60601,1200.00
+first_name,last_name,dob,ssn,phone,address,city,state,zip,balance,county,country,plan,monthly_amount,signup_date
+John,Smith,1/1/2000,123-45-6789,(212) 555-1000,123 Main St,New York,NY,10001,1500.00,New York County,USA,Basic,19.99,2024-02-14
+Jane,Doe,5/5/1990,987-65-4321,(305) 555-2000,45 Ocean Dr,Miami,FL,33101,2200.50,Miami-Dade County,USA,Pro,49.99,2023-11-03
+John,Smith,1/1/2000,123-45-6789,(212) 555-1000,123 Main St,New York,NY,10001,3100.00,New York County,USA,Pro,49.99,2024-02-14
+Robert,Johnson,7/4/1985,555-11-2222,(415) 555-3000,9 Market St,San Francisco,CA,94103,750.25,San Francisco County,USA,Free,0.00,2024-05-20
+Johnny,Smithly,3/3/1970,111-22-3333,(312) 555-4000,1 State St,Chicago,IL,60601,900.00,Cook County,USA,Basic,19.99,2023-08-09
+Johnathan,Smithson,3/3/1970,444-55-6666,(312) 555-5000,2 State St,Chicago,IL,60601,1200.00,Cook County,USA,Premium,99.99,2023-09-01
+Ingrid,Sorensen,9/15/1994,522-92-6714,(303) 555-8790,4691 Birch Ct,Portland,OR,97201,3705.66,Multnomah County,USA,Pro,49.99,2021-08-21
+Carlos,Yilmaz,2005-09-03,853-39-2012,(549) 555-9069,763 Oak Ave,Phoenix,AZ,85001,3194.55,Maricopa County,USA,Basic,19.99,2022-07-13
+Mateo,Osei,12/24/92,454-92-4242,(212) 555-0852,863 Oak Ave,Pittsburgh,PA,15222,3717.95,Allegheny County,USA,Free,0.00,2021-05-26
+Xavier,Castillo,8/19/00,313-55-4778,(750) 555-6192,1512 Church St,Pittsburgh,PA,15222,0.00,Allegheny County,USA,Pro,49.99,2023-06-15
+Maria,Gonzalez,9/14/1988,201-33-4455,(512) 555-7712,884 Sunset Blvd,Austin,TX,78701,320.00,Travis County,USA,Basic,19.99,2022-06-01
+Camille,Kim,3/17/1994,154-93-5041,(856) 555-7992,1345 Meadow Ln,Sacramento,CA,95814,0.00,Sacramento County,USA,Premium,99.99,2025-01-05
+Brooke,Abernathy,1/21/73,802-49-5730,(376) 555-3750,6809 Magnolia Ave,Kansas City,MO,64105,0.00,Jackson County,USA,Free,0.00,2022-12-01
+Noah,Kowalski,1972-03-12,323-36-3540,(872) 555-3741,8182 Chestnut St,Albuquerque,NM,87101,3135.91,Bernalillo County,USA,Free,0.00,2026-03-16
+Elena,Villanueva,2/25/1982,305-54-9589,,4413 Church St,Columbus,OH,43085,0.00,Franklin County,USA,Premium,99.99,2022-07-06
+Yuki,Okafor,1959-01-21,813-75-5859,(849) 555-4338,8696 Valley View Dr,Austin,TX,78701,0.00,Travis County,USA,Premium,99.99,
+Malik,Alvarez,1/9/53,246-64-4541,(314) 555-0347,6672 Chestnut St,Phoenix,AZ,85001,0.00,Maricopa County,USA,Basic,19.99,2022-02-20
+Hunter,Novak,8/28/1978,415-16-5718,(491) 555-3659,8241 Sunset Blvd,Boston,MA,02108,0.00,Suffolk County,USA,Premium,99.99,2025-10-08
+Noah,Vasquez,2000-11-20,720-94-9972,(914) 555-3487,5961 Union Ave,Phoenix,AZ,85001,319.89,Maricopa County,USA,Pro,49.99,2021-10-04
+Anika,Tanaka,11/13/54,270-43-1486,(449) 555-8852,8211 Franklin St,Denver,CO,80202,0.00,Denver County,USA,Basic,19.99,2023-07-07
+Brooke,Diallo,5/7/1992,155-36-2095,(472) 555-9976,373 Franklin St,Kansas City,MO,64105,0.00,,USA,Free,0.00,2024-10-12
+Aisha,Andersson,11/25/1959,408-27-2438,(492) 555-3922,8677 Franklin St,Boise,ID,83702,0.00,Ada County,USA,Pro,49.99,2024-06-21
+Ava,Whitfield,9/25/85,682-85-6085,(860) 555-1114,5513 Oak Ave,Salt Lake City,UT,84101,0.00,Salt Lake County,USA,Free,0.00,2021-10-11
+Leilani,Whitfield,8/6/82,722-97-8821,(746) 555-4292,8197 Magnolia Ave,Salt Lake City,UT,84101,0.00,Salt Lake County,USA,Free,0.00,2026-12-17
+Tyler,Haddad,1987-02-05,311-38-6602,(557) 555-8387,7191 Ridge Rd,Phoenix,AZ,85001,628.39,Maricopa County,USA,Premium,99.99,2024-12-19
+Mila,Nakamura,8/14/1958,124-88-4246,(324) 555-2813,7656 Birch Ct,Albuquerque,NM,87101,0.00,Bernalillo County,USA,Free,0.00,2021-08-25
+Camille,Hassan,1979-04-24,415-52-2460,(770) 555-1543,9363 Sunset Blvd,Raleigh,NC,27601,0.00,Wake County,USA,Basic,19.99,
+Ahmed,Fitzgerald,1974-10-21,185-73-3800,(418) 555-1667,3615 Church St,Nashville,TN,37201,0.00,Davidson County,USA,Free,0.00,2025-04-13
+Selena,Kaur,3/11/1997,,(762) 555-7925,1265 Cedar Ln,Richmond,VA,23219,3247.47,,USA,Premium,99.99,2024-08-07
+Quentin,Abernathy,1963-01-20,410-29-9397,(683) 555-2595,3121 Union Ave,Raleigh,NC,27601,185.53,Wake County,USA,Free,0.00,2025-09-01
+David,Chen,1979-11-02,,(206) 555-7788,12 Birch Ct,Seattle,WA,98101,0.00,King County,USA,Pro,49.99,2021-03-15
+Elena,Kaur,9/10/1950,895-17-9598,(204) 555-9391,9537 Birch Ct,Pittsburgh,PA,15222,0.00,Allegheny County,USA,Pro,49.99,2026-03-10
+Marcus,Delacroix,7/16/1953,238-11-7912,(821) 555-8416,4386 Cedar Ln,Albuquerque,NM,87101,0.00,Bernalillo County,USA,Pro,49.99,2024-11-13
+Amanda,Bianchi,1996-07-17,469-18-5888,(885) 555-9748,9307 Birch Ct,Richmond,VA,23219,0.00,Richmond City County,USA,Pro,49.99,2026-06-12
+Wei,Choudhury,1972-11-26,775-19-3485,(680) 555-4231,2516 Meadow Ln,Boise,ID,83702,0.00,Ada County,USA,Free,0.00,
+Fatima,Novak,1968-08-10,326-77-7470,(379) 555-6012,9312 Lake Rd,Denver,CO,80202,0.00,Denver County,USA,Free,0.00,2023-04-23
+Bianca,Choudhury,1988-08-10,792-51-2075,(798) 555-0313,8495 Lake Rd,Albuquerque,NM,87101,0.00,Bernalillo County,,Pro,49.99,2023-02-03
+Quentin,Nakamura,2/6/82,745-36-3908,(980) 555-2478,3915 Union Ave,Boise,ID,83702,0.00,Ada County,,Basic,19.99,2021-05-02
+Zara,Tanaka,6/11/1979,600-38-3044,(411) 555-5259,5801 Highland Ave,Austin,TX,78701,0.00,Travis County,USA,Pro,49.99,2026-01-13
+Tyler,Silva,7/11/2004,583-19-2409,(584) 555-2627,6843 Main St,Phoenix,AZ,85001,1505.44,Maricopa County,USA,Premium,99.99,2023-05-07
+Diego,Haddad,11/7/1997,141-69-9900,,3471 Meadow Ln,Boston,MA,02108,0.00,Suffolk County,USA,Basic,19.99,2022-01-06
+Brooke,Haruna,1979-07-05,343-33-5942,(306) 555-7224,1995 Franklin St,Phoenix,AZ,85001,1871.32,Maricopa County,USA,Premium,99.99,2021-09-10
+Amanda,Dubois,12/6/73,330-44-5163,(766) 555-7422,7637 River Rd,Pittsburgh,PA,15222,0.00,Allegheny County,USA,Pro,49.99,2022-03-18
+Connor,Bianchi,1977-04-06,553-46-2852,(422) 555-0025,2563 Magnolia Ave,Albuquerque,NM,87101,0.00,Bernalillo County,USA,Premium,99.99,2024-10-10
+Diego,Ferreira,1968-10-02,196-67-2200,(679) 555-9736,3236 Union Ave,Sacramento,CA,95814,0.00,Sacramento County,USA,Premium,99.99,2025-09-15
+Priya,Patel,6/23/95,344-98-1122,(303) 555-9091,27 Meadow Ln,Denver,CO,80202,0.00,,USA,Free,0.00,2023-01-20
+Isabella,Sorensen,1998-04-24,603-57-8718,(822) 555-2137,7178 Hill St,Columbus,OH,43085,0.00,Franklin County,USA,Free,0.00,2026-12-09
+Noah,Ahmadi,7/17/55,810-87-8567,(511) 555-5957,9500 Main St,Sacramento,CA,95814,3499.10,,USA,Free,0.00,2025-10-14
+Isabella,Delacroix,6/23/57,117-19-8386,(464) 555-0390,5625 Birch Ct,Denver,CO,80202,0.00,Denver County,,Basic,19.99,2023-10-06
+Felix,Alvarez,10/7/1998,,(730) 555-8783,7778 Park Blvd,Salt Lake City,UT,84101,0.00,Salt Lake County,USA,Premium,99.99,2025-11-19
+Lucas,Delacroix,9/23/60,616-78-5165,(581) 555-9675,8720 Highland Ave,Albuquerque,NM,87101,0.00,Bernalillo County,,Basic,19.99,2026-10-11
+Oliver,Fitzgerald,5/10/65,740-86-2591,(201) 555-6581,4008 Oak Ave,Pittsburgh,PA,15222,0.00,,USA,Free,0.00,
+Fatima,Mbeki,1991-02-07,708-74-8026,(707) 555-5417,3015 River Rd,Boston,MA,02108,2854.94,Suffolk County,USA,Pro,49.99,2022-03-14
+Felix,Yilmaz,5/25/1984,557-76-7650,(864) 555-9144,8271 Hill St,Austin,TX,78701,1508.59,Travis County,USA,Basic,19.99,2023-04-19
+Selena,Rossi,1969-05-20,842-48-3757,(796) 555-8779,1095 Washington Ave,Richmond,VA,23219,0.00,Richmond City County,USA,Free,0.00,2024-08-17
+Amanda,Haruna,1/4/71,246-50-6817,(667) 555-8010,5877 Maple Dr,Portland,OR,97201,587.32,Multnomah County,,Premium,99.99,2023-01-19
+Omar,Silva,2/7/1990,398-96-1409,(717) 555-2923,5672 Oak Ave,Kansas City,MO,64105,1653.19,Jackson County,USA,Free,0.00,2022-10-16
+Carlos,Larsen,1/4/1961,389-41-3624,(381) 555-9245,6051 Cedar Ln,Minneapolis,MN,55401,3453.69,Hennepin County,USA,Basic,19.99,2022-04-11
+Aisha,Kaur,1963-11-12,733-85-8105,(866) 555-8232,8964 Park Blvd,Denver,CO,80202,1396.36,Denver County,USA,Pro,49.99,2022-06-18
+Ahmed,Yamamoto,5/18/2003,562-83-1407,(813) 555-8249,9349 Birch Ct,Milwaukee,WI,53202,3294.20,Milwaukee County,USA,Pro,49.99,2022-01-03
+Maria,Gonzalez,9/14/1988,201-33-4455,(512) 555-7712,884 Sunset Blvd,Austin,TX,78701,145.50,Travis County,USA,Basic,19.99,2022-06-01
+Felix,Sorensen,4/25/71,741-11-3257,(685) 555-6983,5947 Spring St,Salt Lake City,UT,84101,0.00,Salt Lake County,USA,Basic,19.99,2025-03-18
+Leilani,Castellano,9/28/57,,(224) 555-5649,2578 Spring St,Nashville,TN,37201,0.00,Davidson County,USA,Basic,19.99,2024-04-07
+Marcus,Osei,10/10/1980,323-89-6330,(921) 555-1077,9728 Lake Rd,Kansas City,MO,64105,0.00,Jackson County,USA,Pro,49.99,2026-03-14
+Derek,Silva,4/15/2002,288-34-1052,(843) 555-5995,5908 Valley View Dr,Austin,TX,78701,0.00,Travis County,USA,Free,0.00,
+Yuki,Reyes,1971-08-01,722-79-1313,(683) 555-5631,7176 Birch Ct,Salt Lake City,UT,84101,2108.34,Salt Lake County,USA,Pro,49.99,2021-05-16
+Isabella,Silva,1998-11-05,849-35-8960,(277) 555-4451,2421 Elm St,Phoenix,AZ,85001,0.00,Maricopa County,USA,Free,0.00,2026-03-15
+Simone,Diallo,7/23/1955,153-60-5838,(797) 555-7983,1457 Pine St,Atlanta,GA,30301,0.00,Fulton County,USA,Basic,19.99,2024-03-22
+Amanda,Osei,10/10/1969,442-50-3859,(452) 555-1934,8199 Elm St,Raleigh,NC,27601,760.61,Wake County,USA,Premium,99.99,2025-08-14
+Bianca,Hassan,10/24/76,877-15-7627,(229) 555-9650,7464 Pine St,Salt Lake City,UT,84101,0.00,,USA,Premium,99.99,2021-01-21
+Noah,Delacroix,10/2/1993,404-40-8254,,7502 Ridge Rd,Seattle,WA,98101,0.00,King County,USA,Free,0.00,2024-12-22
+Mateo,Osei,8/5/81,472-81-6365,,1084 Chestnut St,Boise,ID,83702,3560.39,Ada County,,Basic,19.99,2025-01-08
+Brandon,Novak,7/18/94,316-57-2159,(667) 555-2069,3667 Birch Ct,Milwaukee,WI,53202,2630.35,Milwaukee County,USA,Premium,99.99,2024-01-05
+Ezra,Abernathy,6/3/1957,188-72-3904,(337) 555-3024,2433 Birch Ct,Austin,TX,78701,0.00,Travis County,USA,Free,0.00,2025-03-07
+Noah,Whitfield,1965-07-05,,(762) 555-2868,5370 Magnolia Ave,Austin,TX,78701,3480.57,Travis County,USA,Pro,49.99,2021-02-09
+Fatima,Haddad,1962-09-26,,(241) 555-6025,4927 Ridge Rd,Minneapolis,MN,55401,0.00,Hennepin County,USA,Premium,99.99,2021-09-16
+Gabriel,Lindqvist,1983-06-13,376-22-9361,(546) 555-0393,2246 Main St,Milwaukee,WI,53202,809.20,Milwaukee County,USA,Pro,49.99,2022-06-16
+Elena,Larsen,12/25/1986,607-70-5329,(820) 555-2266,2014 Hill St,Milwaukee,WI,53202,0.00,Milwaukee County,USA,Basic,19.99,2025-07-21
+Ezra,Bianchi,1953-03-15,539-82-2369,(622) 555-3381,2108 Sunset Blvd,Atlanta,GA,30301,0.00,Fulton County,,Premium,99.99,2023-04-28
+Mila,Rossi,1958-03-23,730-32-5467,(564) 555-7637,3645 Washington Ave,Phoenix,AZ,85001,4114.57,,USA,Basic,19.99,2022-08-15
+Leilani,Whitfield,3/9/84,,(425) 555-6994,7322 Park Blvd,Austin,TX,78701,0.00,Travis County,USA,Premium,99.99,2021-03-01
+Brooke,Kaur,1965-09-15,262-77-5354,(359) 555-5344,3173 River Rd,Seattle,WA,98101,2842.37,King County,USA,Premium,99.99,2024-07-17
+Rachel,Novak,1/14/86,801-19-8658,(655) 555-9429,7124 Birch Ct,Albuquerque,NM,87101,0.00,,USA,Premium,99.99,2026-05-27
+Rachel,Diallo,7/2/50,243-43-7305,(220) 555-5599,4406 Elm St,Albuquerque,NM,87101,265.39,,USA,Pro,49.99,2025-07-01
+Ingrid,Delacroix,1954-11-16,857-72-9213,(789) 555-2614,9189 Oak Ave,Minneapolis,MN,55401,0.00,Hennepin County,USA,Pro,49.99,2023-12-02
+Brooke,Diallo,1968-07-19,801-95-7281,(253) 555-0454,1874 Spring St,Salt Lake City,UT,84101,0.00,Salt Lake County,USA,Pro,49.99,2026-02-05
+Yuki,Hassan,1957-06-15,,(637) 555-9675,1884 Washington Ave,Kansas City,MO,64105,0.00,Jackson County,USA,Premium,99.99,2023-01-02
+Marcus,Villanueva,7/9/65,279-26-4655,(894) 555-6014,5237 Hill St,Austin,TX,78701,0.00,Travis County,USA,Free,0.00,2024-11-01
+Brandon,Beaumont,1/25/62,148-49-2837,(636) 555-2555,7927 Willow Way,Charlotte,NC,28202,0.00,Mecklenburg County,,Basic,19.99,
+Mila,Ahmadi,4/13/1978,808-33-8394,(539) 555-2730,3628 Valley View Dr,Charlotte,NC,28202,0.00,Mecklenburg County,USA,Premium,99.99,2021-02-16
+David,Chen,1979-11-02,,(206) 555-7788,12 Birch Ct,Seattle,WA,98101,49.99,King County,USA,Pro,49.99,2021-03-15
+Fatima,Yilmaz,1966-12-28,765-31-6378,(335) 555-3544,9096 Magnolia Ave,Portland,OR,97201,0.00,Multnomah County,USA,Premium,99.99,2024-03-07
+Mila,Larsen,7/4/1972,830-36-2075,(291) 555-6283,972 Washington Ave,Boston,MA,02108,0.00,Suffolk County,USA,Free,0.00,2022-05-12
+Camille,Osei,1972-04-15,594-78-5579,(973) 555-9619,589 Birch Ct,Portland,OR,97201,2151.71,Multnomah County,USA,Pro,49.99,2022-01-18
+Grace,Ahmadi,1956-04-22,179-70-7041,(480) 555-5147,6890 Willow Way,Boston,MA,02108,0.00,Suffolk County,USA,Basic,19.99,2023-06-15
+Elena,Castillo,1960-01-06,873-70-5479,(267) 555-7887,5996 Elm St,Nashville,TN,37201,0.00,Davidson County,USA,Basic,19.99,2021-03-23
+Brooke,Kowalski,12/8/1970,114-83-7867,(453) 555-1460,3041 Birch Ct,Raleigh,NC,27601,2320.91,Wake County,USA,Basic,19.99,2022-06-17
+Bianca,Fitzgerald,5/26/60,,(738) 555-5023,1816 Sunset Blvd,Salt Lake City,UT,84101,1133.95,Salt Lake County,USA,Pro,49.99,2021-05-22
+Amanda,Vasquez,12/18/2003,653-98-5318,(787) 555-0233,7561 Willow Way,Charlotte,NC,28202,0.00,Mecklenburg County,USA,Basic,19.99,2025-11-23
+Rachel,Andersson,5/26/64,,(722) 555-2591,7704 Spring St,Minneapolis,MN,55401,0.00,,USA,Basic,19.99,2026-05-09
+Gabriel,Nakamura,3/5/88,,(506) 555-5442,9752 Union Ave,Kansas City,MO,64105,1816.58,Jackson County,USA,Basic,19.99,2026-07-22
+Bianca,Vasquez,4/21/62,217-14-6949,(597) 555-4291,4201 Birch Ct,Columbus,OH,43085,2867.91,Franklin County,USA,Free,0.00,2025-02-08
+Isabella,Hassan,1985-04-12,363-85-7451,(746) 555-7796,7384 Oak Ave,Austin,TX,78701,0.00,Travis County,USA,Basic,19.99,2025-03-15
+Mila,Kaur,1978-12-23,670-75-1130,(682) 555-3971,7514 Cedar Ln,Salt Lake City,UT,84101,0.00,Salt Lake County,USA,Premium,99.99,2022-12-19
+Connor,Lindqvist,4/13/78,276-65-5374,(850) 555-1980,586 Willow Way,Salt Lake City,UT,84101,0.00,Salt Lake County,USA,Pro,49.99,2023-01-15
+Priya,Patel,6/23/95,344-98-1122,(303) 555-9091,27 Meadow Ln,Denver,CO,80202,19.99,,USA,Basic,19.99,2023-01-20
+Derek,Lindqvist,2/16/1977,801-18-5181,(799) 555-4191,8950 Union Ave,Columbus,OH,43085,0.00,Franklin County,USA,Premium,99.99,2024-10-22
+Aisha,Ferreira,2/25/84,664-71-9495,,2954 Oak Ave,Boston,MA,02108,3630.17,Suffolk County,USA,Basic,19.99,2024-07-17
+Rachel,Novak,11/27/1973,727-20-3483,(219) 555-4267,7079 Washington Ave,Phoenix,AZ,85001,0.00,Maricopa County,,Free,0.00,2026-07-02
+Connor,Whitfield,1992-09-28,630-98-1063,(320) 555-2776,4601 Cedar Ln,Atlanta,GA,30301,0.00,,USA,Basic,19.99,
+Sophia,Beaumont,10/15/92,569-41-9553,,2158 Washington Ave,Albuquerque,NM,87101,0.00,Bernalillo County,USA,Basic,19.99,2024-02-01
+Grace,Nakamura,6/13/1964,465-44-5717,(471) 555-3214,8992 Elm St,Kansas City,MO,64105,2426.50,Jackson County,,Pro,49.99,2021-01-01
+Ingrid,Osei,7/23/69,,(689) 555-0970,1123 Sunset Blvd,Seattle,WA,98101,1603.80,King County,USA,Pro,49.99,2026-04-13
+Tyler,Yamamoto,12/27/02,318-66-9009,(654) 555-5459,4689 Willow Way,Albuquerque,NM,87101,0.00,Bernalillo County,,Premium,99.99,2022-07-24
+Selena,Dubois,12/19/65,618-81-5532,(572) 555-1975,9779 Park Blvd,Atlanta,GA,30301,0.00,Fulton County,USA,Basic,19.99,2024-02-25
+Lucas,Blackwood,1994-01-21,728-80-8610,(242) 555-1161,5156 Hill St,Nashville,TN,37201,3951.83,Davidson County,USA,Basic,19.99,2024-01-09
+Zara,Tanaka,1993-05-12,578-78-9100,(395) 555-3966,4178 Valley View Dr,Seattle,WA,98101,0.00,King County,,Basic,19.99,2021-03-14
+Ezra,Andersson,12/24/1999,541-25-9263,(257) 555-9379,8298 Valley View Dr,Denver,CO,80202,3214.35,,USA,Pro,49.99,2024-03-01
+Felix,Ahmadi,11/23/82,238-12-7749,(531) 555-4188,5277 Highland Ave,Pittsburgh,PA,15222,0.00,Allegheny County,USA,Pro,49.99,2021-11-16
+Derek,Hassan,1975-12-07,,(692) 555-5249,4158 Meadow Ln,Raleigh,NC,27601,0.00,Wake County,USA,Premium,99.99,2025-06-27
+Maria,Gonzalez,9/14/1988,201-33-4455,(512) 555-7712,884 Sunset Blvd,Austin,TX,78701,0.00,Travis County,USA,Pro,49.99,2022-06-01
+Harper,Riordan,12/5/93,672-78-4456,(627) 555-2882,6815 Park Blvd,Milwaukee,WI,53202,220.92,Milwaukee County,USA,Pro,49.99,2021-02-16
+Leilani,Kowalski,6/22/1978,,(232) 555-2314,3117 Union Ave,Nashville,TN,37201,0.00,Davidson County,USA,Basic,19.99,2023-04-22
+Brooke,Tanaka,1997-11-06,774-61-5941,(604) 555-2529,4544 Franklin St,Salt Lake City,UT,84101,2473.02,Salt Lake County,USA,Free,0.00,2025-06-07
+Carlos,Blackwood,8/25/52,521-61-8236,(598) 555-2695,4006 Cedar Ln,Charlotte,NC,28202,0.00,Mecklenburg County,USA,Basic,19.99,2022-09-05
+Yuki,Okafor,7/11/88,315-23-4774,(588) 555-2789,3548 Birch Ct,Charlotte,NC,28202,3083.65,Mecklenburg County,USA,Premium,99.99,2025-11-06
+Yuki,Yilmaz,12/16/1994,714-82-8438,(494) 555-2832,1599 Sunset Blvd,Boston,MA,02108,0.00,Suffolk County,USA,Pro,49.99,2022-03-19
+Natasha,Lindqvist,1985-10-23,893-43-9382,(903) 555-1459,7268 Sunset Blvd,Portland,OR,97201,0.00,Multnomah County,USA,Pro,49.99,2025-03-05
+Yuki,Rossi,1993-11-26,,(215) 555-3889,1035 Union Ave,Atlanta,GA,30301,0.00,Fulton County,USA,Basic,19.99,2023-06-07
+Marcus,Fitzgerald,8/27/95,754-88-9072,(975) 555-7693,8977 Pine St,Pittsburgh,PA,15222,0.00,Allegheny County,USA,Basic,19.99,2024-01-14
+Ezra,Okafor,2/22/1992,443-66-7542,(313) 555-3278,4137 Washington Ave,Boise,ID,83702,0.00,Ada County,USA,Pro,49.99,2026-02-09
+Trevor,Castillo,1988-06-08,292-37-6139,(224) 555-1554,4320 Franklin St,Boise,ID,83702,0.00,Ada County,USA,Pro,49.99,2023-08-11
+Grace,Okafor,1952-12-10,655-80-3602,(772) 555-6891,1122 Hill St,Minneapolis,MN,55401,0.00,Hennepin County,USA,Basic,19.99,2024-09-26
+Noah,Nakamura,4/5/89,302-16-1015,(848) 555-4282,4666 Franklin St,Kansas City,MO,64105,0.00,Jackson County,USA,Free,0.00,2026-02-28
+Bianca,Petrov,8/20/75,425-54-2930,(679) 555-0057,1262 Franklin St,Raleigh,NC,27601,4135.55,Wake County,USA,Free,0.00,2024-02-20
+Mila,Dubois,11/25/78,326-33-7687,(458) 555-6132,5827 Hill St,Albuquerque,NM,87101,3179.70,Bernalillo County,USA,Free,0.00,2026-06-11
+Connor,Osei,1956-06-08,155-56-3084,(507) 555-2519,8213 Willow Way,Milwaukee,WI,53202,0.00,Milwaukee County,USA,Basic,19.99,2024-09-10
+Mila,Beaumont,1977-10-22,145-77-3213,(838) 555-6737,4468 Ridge Rd,Columbus,OH,43085,3775.42,Franklin County,USA,Free,0.00,2023-07-28
+Natasha,Haruna,1980-04-25,,(712) 555-9912,7738 Ridge Rd,Sacramento,CA,95814,1457.35,Sacramento County,USA,Basic,19.99,2022-01-11
+Felix,Choudhury,1995-10-06,116-79-3815,(737) 555-5976,2477 Lake Rd,Charlotte,NC,28202,258.19,Mecklenburg County,USA,Premium,99.99,2023-08-05
+Leilani,Vasquez,1966-01-17,532-98-1036,(247) 555-3227,8333 Elm St,Phoenix,AZ,85001,0.00,,USA,Basic,19.99,2023-04-24
+Mateo,Marchetti,9/8/71,698-50-6219,(513) 555-2140,1141 Cedar Ln,Albuquerque,NM,87101,1170.75,Bernalillo County,USA,Free,0.00,2026-11-15
+Sophia,Riordan,11/23/1983,328-23-4010,,5197 Lake Rd,Boise,ID,83702,0.00,Ada County,,Pro,49.99,2022-09-06
+Malik,Rossi,6/25/1982,131-63-1660,(325) 555-4919,6637 Lake Rd,Boston,MA,02108,0.00,Suffolk County,USA,Pro,49.99,2024-01-28
+Noah,Reyes,9/13/1952,807-69-7000,(612) 555-4787,5317 Washington Ave,Sacramento,CA,95814,2095.67,Sacramento County,USA,Basic,19.99,
+Bianca,Yamamoto,3/22/73,,(893) 555-0092,8861 Lake Rd,Boston,MA,02108,3986.01,,USA,Free,0.00,2021-06-13
+Aisha,Whitfield,1950-07-21,504-44-6083,(370) 555-3457,1767 Union Ave,Charlotte,NC,28202,1550.10,Mecklenburg County,USA,Pro,49.99,2023-02-24
+Noah,Marchetti,1951-11-27,210-19-2800,(699) 555-0052,4851 Hill St,Kansas City,MO,64105,0.00,Jackson County,USA,Basic,19.99,
+Felix,Castillo,9/19/2005,849-92-4432,(336) 555-8273,1487 Birch Ct,Atlanta,GA,30301,2637.08,Fulton County,USA,Premium,99.99,
+Selena,Sorensen,5/18/2004,693-61-9898,(440) 555-1064,622 Pine St,Kansas City,MO,64105,0.00,Jackson County,USA,Basic,19.99,2021-08-08
