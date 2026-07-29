@@ -5,6 +5,7 @@ description: Turn a CSV or Excel file of real people into safe, realistic fake d
 domain: Data & Analytics
 users: Anyone who has to share a file of real people with a vendor, a test environment or a colleague.
 lifecycle: shipped
+live_url: https://bengodgart.github.io/data-anonymizer/
 pricing: Free.
 generated:
   by: claude-opus-5
