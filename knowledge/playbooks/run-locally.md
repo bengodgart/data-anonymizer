@@ -4,7 +4,7 @@ title: Run data-anonymizer locally
 description: 'How to serve data-anonymizer and run its tests on a dev machine.'
 generated:
   by: claude-opus-5
-  at: '2026-07-29T04:24:12+00:00'
+  at: '2026-07-29T04:31:42+00:00'
 status: stable
 ---
 
