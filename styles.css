@@ -327,3 +327,25 @@ table.preview .rowlabel { color: var(--muted); font-size: 0.72rem; text-transfor
 }
 .tool-footer .tool-footer-button:hover { background: var(--tf-surface-2); border-color: var(--tf-accent); }
 .tool-footer-button:focus-visible { outline: 2px solid var(--tf-accent); outline-offset: 2px; }
+
+/* Shared header promise line, identical on every tool in the tree. The selector is
+   deliberately SELF-DOUBLED, exactly like the footer block below: several tools carry
+   rules such as "header.site p" or ".site-header p" whose specificity (0,1,2) outranks
+   a single class (0,1,0), which was rendering this promise at the tagline size on some
+   tools and leaving it completely unstyled on the four with separate stylesheets. The
+   words only change when the FACTS change, and neither does the styling. */
+.tool-promise.tool-promise {
+  --tp-border: #475569;
+  --tp-accent: #4ade80;
+  display: inline-block;
+  margin: 10px 0 0;
+  padding: 6px 12px;
+  border: 1px solid var(--tp-border);
+  border-left: 3px solid var(--tp-accent);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 13.5px;
+  line-height: 1.5;
+  font-weight: 400;
+  max-width: 70ch;
+}
