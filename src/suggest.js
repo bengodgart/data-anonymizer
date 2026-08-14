@@ -5,7 +5,8 @@
  *   1. The column NAME, matched against a vocabulary of everyday spellings
  *      ("dob", "Date of Birth", "Patient DOB" all mean date of birth).
  *   2. The column VALUES, matched against shapes we can recognize on sight
- *      (a social security number, a phone, a five digit ZIP, a state code).
+ *      (a Social Security number, an email address, a payment card that passes
+ *      its check digit, a phone, a five digit ZIP, a state code).
  *
  * A name match always outranks a shape match, and a shape match can confirm a
  * name match but never overrules it. Nothing here changes the file; the result
@@ -50,9 +51,13 @@
       'last nm', 'legal last name', 'name last'],
     date_of_birth: ['date of birth', 'dob', 'd o b', 'birth date', 'birthdate', 'birthday',
       'date born', 'born on', 'bdate', 'birth dt', 'date of birth dob'],
-    special_number: ['ssn', 'social security number', 'social security', 'social security no',
+    ssn: ['ssn', 'social security number', 'social security', 'social security no',
       'ss number', 'ssno', 'sin', 'national id', 'national insurance number', 'tax id',
-      'tin', 'itin', 'ein', 'special number'],
+      'tin', 'itin', 'ein'],
+    card_number: ['card number', 'credit card', 'credit card number', 'debit card',
+      'card no', 'cc', 'cc number', 'ccnum', 'payment card', 'card', 'pan'],
+    email: ['email', 'email address', 'e mail', 'email 1', 'primary email', 'personal email',
+      'work email', 'contact email', 'email addr', 'mail address'],
     phone_1: ['phone', 'phone number', 'phone no', 'telephone', 'telephone number', 'tel',
       'phone 1', 'primary phone', 'home phone', 'day phone', 'daytime phone',
       'contact number', 'contact phone'],
@@ -85,6 +90,10 @@
   var NEGATIVE = {
     address_line_1: ['email', 'e mail', 'ip', 'url', 'web', 'website', 'domain', 'mac'],
     address_line_2: ['email', 'e mail', 'ip', 'url', 'web', 'website', 'domain'],
+    // "card type", "card holder" and "card expiry" are all about a card and
+    // none of them is the number.
+    card_number: ['type', 'brand', 'holder', 'name', 'expiry', 'expiration', 'exp',
+      'cvv', 'cvc', 'issuer', 'network', 'status', 'level', 'tier', 'last4', 'last 4'],
     state: ['statement', 'status', 'estate', 'statistic', 'stateless'],
     city: ['capacity', 'electricity'],
     full_name: ['user', 'username', 'file', 'filename', 'company', 'business', 'account',
@@ -210,14 +219,47 @@
     return false;
   }
 
+  // Luhn, the check digit every payment card carries. A random fifteen or
+  // sixteen digit number passes it one time in ten, so it is the difference
+  // between "long number" and "card number".
+  function passesLuhn(digits) {
+    var sum = 0;
+    var alt = false;
+    for (var i = digits.length - 1; i >= 0; i--) {
+      var d = digits.charCodeAt(i) - 48;
+      if (d < 0 || d > 9) return false;
+      if (alt) {
+        d *= 2;
+        if (d > 9) d -= 9;
+      }
+      sum += d;
+      alt = !alt;
+    }
+    return digits.length > 0 && sum % 10 === 0;
+  }
+
+  function isCardLike(s) {
+    if (!/^[\d\s\-]+$/.test(s)) return false;
+    var digits = s.replace(/\D/g, '');
+    if (digits.length < 13 || digits.length > 19) return false;
+    return passesLuhn(digits);
+  }
+
   function isPhoneLike(s) {
     if (!/^[\s()+.\-]*\d[\d\s()+.\-]*$/.test(s)) return false;
     // A date and a plain decimal both survive the pattern above. "2024-02-14"
     // carries ten digits and would otherwise read as a phone number.
     if (isDateLike(s)) return false;
     if (/^[-+]?\d+\.\d+$/.test(s)) return false;
+    // An American Express number is fifteen digits, inside the phone range.
+    // The check digit settles which one it is.
+    if (isCardLike(s)) return false;
     var digits = s.replace(/\D/g, '');
     return digits.length >= 7 && digits.length <= 15;
+  }
+
+  function isEmailLike(s) {
+    return /^[^@\s,;]+@[^@\s,;.]+(\.[^@\s,;.]+)+$/.test(s);
   }
 
   function isZipLike(s) {
@@ -241,7 +283,9 @@
     if (!values.length) return false;
     switch (term) {
       case 'date_of_birth': return mostValues(values, isDateLike);
-      case 'special_number': return mostValues(values, isSpecialNumberLike);
+      case 'ssn': return mostValues(values, isSpecialNumberLike);
+      case 'card_number': return mostValues(values, isCardLike);
+      case 'email': return mostValues(values, isEmailLike);
       case 'phone_1':
       case 'phone_2': return mostValues(values, isPhoneLike);
       case 'zip_code': return everyValue(values, isZipLike);
@@ -303,7 +347,13 @@
     // Shapes strong enough to stand on their own when the name says nothing.
     if (values.length) {
       if (everyValue(values, isSpecialNumberLike)) {
-        out.push({ term: 'special_number', col: colIdx, score: SCORE_SHAPE_ONLY, reason: 'The values look like a social security number.' });
+        out.push({ term: 'ssn', col: colIdx, score: SCORE_SHAPE_ONLY, reason: 'The values look like a Social Security number.' });
+      }
+      if (everyValue(values, isEmailLike)) {
+        out.push({ term: 'email', col: colIdx, score: SCORE_SHAPE_ONLY, reason: 'The values look like email addresses.' });
+      }
+      if (everyValue(values, isCardLike)) {
+        out.push({ term: 'card_number', col: colIdx, score: SCORE_SHAPE_ONLY, reason: 'The values pass the check digit every payment card carries.' });
       }
       if (everyValue(values, isPhoneLike)) {
         out.push({ term: 'phone_1', col: colIdx, score: SCORE_SHAPE_ONLY, reason: 'The values look like phone numbers.' });
@@ -400,6 +450,9 @@
     nameScore: nameScore,
     isDateLike: isDateLike,
     isSpecialNumberLike: isSpecialNumberLike,
+    isEmailLike: isEmailLike,
+    isCardLike: isCardLike,
+    passesLuhn: passesLuhn,
     isPhoneLike: isPhoneLike,
     isZipLike: isZipLike,
     isStateCodeLike: isStateCodeLike,

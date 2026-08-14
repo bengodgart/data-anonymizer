@@ -22,9 +22,12 @@
   var ZIPS = (DAZip && DAZip.ZIPS) || [];
 
   // The common terms a user can map columns to. Order is display order.
+  // Only first name, last name and date of birth are ever required, because
+  // those three are what the anon_key is built from. Every other term is
+  // optional and is simply left alone when it is not assigned.
   var TERMS = [
     'first_name', 'last_name', 'full_name_last_first', 'full_name_first_last',
-    'date_of_birth', 'special_number', 'phone_1', 'phone_2',
+    'date_of_birth', 'ssn', 'card_number', 'email', 'phone_1', 'phone_2',
     'address_line_1', 'address_line_2', 'city', 'state', 'zip_code',
     'county', 'country'
   ];
@@ -35,7 +38,9 @@
     full_name_last_first: 'Full name (last, first)',
     full_name_first_last: 'Full name (first last)',
     date_of_birth: 'Date of birth',
-    special_number: 'Special number',
+    ssn: 'Social Security number',
+    card_number: 'Card number',
+    email: 'Email address',
     phone_1: 'Phone 1',
     phone_2: 'Phone 2',
     address_line_1: 'Address line 1',
@@ -283,7 +288,14 @@
         case 'full_name_last_first': out[t] = fakeLast + ', ' + fakeFirst; break;
         case 'full_name_first_last': out[t] = fakeFirst + ' ' + fakeLast; break;
         case 'date_of_birth': out[t] = fakeDob; break;
-        case 'special_number': out[t] = '***-**-****'; break;
+        // Two masks rather than fakes. A made-up SSN or card number is a real
+        // one for somebody, and neither is worth inventing.
+        case 'ssn': out[t] = '***-**-****'; break;
+        case 'card_number': out[t] = '****-****-****-****'; break;
+        // example.com is reserved by the IANA for exactly this, so a fake
+        // address can never reach a real inbox. Uniqueness across people is
+        // settled later, in anonymizeDataset.
+        case 'email': out[t] = fakeFirst.toLowerCase() + '.' + fakeLast.toLowerCase() + '@example.com'; break;
         case 'phone_1':
         case 'phone_2':
           out[t] = (phoneTypes && phoneTypes[t] === 'number') ? '5555555555' : '(555) 555-5555';
@@ -375,12 +387,15 @@
     // buckets that contain more than one real person.
     var rowInfo = new Array(rows.length);
     var buckets = {}; // baseKey -> { signature: true, ... }
+    var people = {};  // sigHash -> true, one entry per distinct person
     for (var r = 0; r < rows.length; r++) {
       var identity = deriveIdentity(rows[r], mapping);
       var baseKey = sha256Hex(anonKeyRaw(identity)).slice(0, 16);
       var sig = identitySignature(identity);
-      rowInfo[r] = { baseKey: baseKey, sig: sig };
+      var sigHash = sha256Hex(sig);
+      rowInfo[r] = { baseKey: baseKey, sig: sig, sigHash: sigHash };
       (buckets[baseKey] || (buckets[baseKey] = {}))[sig] = true;
+      people[sigHash] = true;
     }
 
     // Resolve collisions: any bucket holding 2+ distinct signatures gets a stable
@@ -404,11 +419,35 @@
       }
     }
 
+    // Every person's fake record, built once, in sorted-signature order so the
+    // result never depends on the order the rows arrived in.
+    //
+    // The name pools are finite, so two different people can legitimately draw
+    // the same fake name. That is fine for a name and wrong for an email
+    // address, which downstream systems treat as unique, so a second person
+    // holding an address already taken gets a counted variant of it
+    // (james.smith2@example.com). Sorting first is what keeps that stable.
+    var fakeCache = {};
+    var emailOwner = {};
+    Object.keys(people).sort().forEach(function (sigHash) {
+      var fake = buildFakePerson(sigHash, assignedTerms, phoneTypes);
+      if (fake.email) {
+        var candidate = fake.email;
+        var n = 1;
+        while (emailOwner[candidate]) {
+          n++;
+          candidate = fake.email.replace('@', String(n) + '@');
+        }
+        emailOwner[candidate] = sigHash;
+        fake.email = candidate;
+      }
+      fakeCache[sigHash] = fake;
+    });
+
     // Pass 2: build both output files. The anon_key is the base bucket key, plus
     // the disambiguation suffix when its bucket collided. Fake data is seeded from
     // the FULL identity signature, so two different people in a collided bucket get
     // different fake records as well as different keys.
-    var fakeCache = {};
     var uniqueKeys = {};
     var anonRows = new Array(rows.length);
     var originalRows = new Array(rows.length);
@@ -419,17 +458,17 @@
       var anonK = info.baseKey + suffix;
       uniqueKeys[anonK] = true;
 
-      var sigHash = sha256Hex(info.sig);
-      var fake = fakeCache[sigHash];
-      if (!fake) {
-        fake = buildFakePerson(sigHash, assignedTerms, phoneTypes);
-        fakeCache[sigHash] = fake;
-      }
+      var fake = fakeCache[info.sigHash];
 
       // Anonymized row: copy original, overwrite mapped columns, append anon_key.
       var anonRow = rows[r].slice();
       for (var a = 0; a < assignedTerms.length; a++) {
         var at = assignedTerms[a];
+        var cell = rows[r][mapping[at]];
+        // An empty cell stays empty. Writing a fake value into it would invent
+        // a phone number the person never gave or a card they never had, and
+        // would silently change how many values are missing in the file.
+        if (cell == null || String(cell).trim() === '') continue;
         anonRow[mapping[at]] = fake[at];
       }
       anonRow.push(anonK);

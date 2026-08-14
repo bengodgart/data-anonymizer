@@ -11,8 +11,10 @@ Live: https://bengodgart.github.io/data-anonymizer/
 1. You upload a `.csv`, `.xlsx`, or `.xls` file. Excel workbooks with more than
    one sheet let you pick which sheet to use.
 2. You map the personal-data columns to common terms (first name, last name,
-   date of birth, phone, address, and so on). First name, last name, and date of
-   birth are required; a full-name column can satisfy first and last together.
+   date of birth, Social Security number, email, card number, phone, address, and
+   so on). Only first name, last name, and date of birth are required, because
+   those three build the key; every other term is optional. A full-name column
+   can satisfy first and last together.
    The tool reads your column names and values first and offers a match for each
    one it recognizes, so this step is usually one click (see below).
 3. The tool produces **two files**, both carrying a shared `anon_key`:
@@ -26,7 +28,7 @@ Live: https://bengodgart.github.io/data-anonymizer/
 
 ## Column suggestions
 
-Mapping fifteen terms by hand is the slowest part of the tool, so it recommends
+Mapping seventeen terms by hand is the slowest part of the tool, so it recommends
 the ones it can recognize. Every recommendation is an offer, never an action:
 
 - Each row gets its own button (`Use "dob"`) that sets that one dropdown.
@@ -39,8 +41,9 @@ Two signals decide a match, in this order of trust:
 1. **The column name**, matched against everyday spellings, so `dob`,
    `Date of Birth`, and `Patient DOB` all find date of birth.
 2. **The values**, matched against shapes that are recognizable on sight: a
-   social security number, a phone number, a five digit ZIP, a state code, a
-   name written `Last, First`.
+   Social Security number, an email address, a payment card that passes its
+   check digit, a phone number, a five digit ZIP, a state code, a name written
+   `Last, First`.
 
 A name match always outranks a shape match, and the engine will not suggest the
 same column twice, so accepting everything always produces a mapping the tool
@@ -52,8 +55,8 @@ Two guesses it deliberately refuses to make:
   date look identical, and a wrong birth date quietly corrupts every `anon_key`.
   It wants the column name to say so.
 - **Words that look right and are wrong are vetoed**, so `Email Address` is not
-  a street address, `Statement Date` is not a state, and `Plan Name` is not a
-  person's name.
+  a street address, `Statement Date` is not a state, `Card Type` is not a card
+  number, and `Plan Name` is not a person's name.
 
 The engine lives in `src/suggest.js` and is covered by the test suite.
 
@@ -97,12 +100,24 @@ row5 (Johnathan Smithson 3/3/1970)  -> c5dcbe048f520260-01   (collision resolved
 ## Fake data rules
 
 - **Names** are drawn from fixed vocabularies, stable per person.
-- **Special number** is replaced with `***-**-****`.
+- **Social Security number** is replaced with `***-**-****`.
+- **Card number** is replaced with `****-****-****-****`. It is masked rather
+  than faked, and no digits survive, not even the last four: a made-up card
+  number is a real one for somebody, and last four digits are still real data.
+- **Email** becomes `firstname.lastname@example.com`, built from the fake name
+  that person already has, so the two agree. `example.com` is reserved by the
+  IANA, so a fake address can never reach a real inbox. If two different people
+  happen to draw the same fake name, the second gets a counted variant
+  (`james.smith2@example.com`), because downstream systems treat an email as
+  unique.
 - **Phone** becomes `(555) 555-5555` when its source column is text, or
   `5555555555` when the column is numeric.
 - **Addresses** stay internally consistent: a fake ZIP always carries the same
   city, state, county, and country, because they all come from one real ZIP
   record chosen for that person.
+- **Empty cells stay empty.** A blank phone or a blank card is left blank
+  rather than filled in, so the output does not invent a detail the person never
+  gave, and any count of missing values still holds.
 - Unmapped columns pass through untouched.
 
 ## Why client-side
@@ -135,7 +150,7 @@ node test.js
 ```
 
 ```
-Assertions passed: 153
+Assertions passed: 202
 Assertions failed: 0
 ALL PASS
 ```

@@ -54,13 +54,18 @@ function quoteField(value) {
 }
 
 // ---------------------------------------------------------------------------
-// Header. Columns the tool maps: first_name, last_name, dob, ssn (special
-// number), phone, address, city, state, zip, county, country. Three columns
+// Header. Columns the tool maps: first_name, last_name, dob, ssn, email,
+// card_number, phone, address, city, state, zip, county, country. Three columns
 // (plan, monthly_amount, signup_date) are deliberately left UNMAPPED so the
 // preview shows the reader exactly what changes vs. what survives untouched.
+//
+// email and card_number are appended at the END rather than slotted in beside
+// ssn, so the legacy rows below keep their first fifteen fields exactly as they
+// were written.
 // ---------------------------------------------------------------------------
 var HEADERS = ['first_name', 'last_name', 'dob', 'ssn', 'phone', 'address',
-  'city', 'state', 'zip', 'balance', 'county', 'country', 'plan', 'monthly_amount', 'signup_date'];
+  'city', 'state', 'zip', 'balance', 'county', 'country', 'plan', 'monthly_amount',
+  'signup_date', 'email', 'card_number'];
 
 // ---------------------------------------------------------------------------
 // Legacy 6 rows - DO NOT change these values or their order. They back the
@@ -76,12 +81,12 @@ var HEADERS = ['first_name', 'last_name', 'dob', 'ssn', 'phone', 'address',
 // billed at $1500.00 learns nothing except that the sample is broken.
 // ---------------------------------------------------------------------------
 var LEGACY_ROWS = [
-  ['John', 'Smith', '1/1/2000', '123-45-6789', '(212) 555-1000', '123 Main St', 'New York', 'NY', '10001', '1500.00', 'New York County', 'USA', 'Basic', '19.99', '2024-02-14'],
-  ['Jane', 'Doe', '5/5/1990', '987-65-4321', '(305) 555-2000', '45 Ocean Dr', 'Miami', 'FL', '33101', '2200.50', 'Miami-Dade County', 'USA', 'Pro', '49.99', '2023-11-03'],
-  ['John', 'Smith', '1/1/2000', '123-45-6789', '(212) 555-1000', '123 Main St', 'New York', 'NY', '10001', '3100.00', 'New York County', 'USA', 'Pro', '49.99', '2024-02-14'],
-  ['Robert', 'Johnson', '7/4/1985', '555-11-2222', '(415) 555-3000', '9 Market St', 'San Francisco', 'CA', '94103', '750.25', 'San Francisco County', 'USA', 'Free', '0.00', '2024-05-20'],
-  ['Johnny', 'Smithly', '3/3/1970', '111-22-3333', '(312) 555-4000', '1 State St', 'Chicago', 'IL', '60601', '900.00', 'Cook County', 'USA', 'Basic', '19.99', '2023-08-09'],
-  ['Johnathan', 'Smithson', '3/3/1970', '444-55-6666', '(312) 555-5000', '2 State St', 'Chicago', 'IL', '60601', '1200.00', 'Cook County', 'USA', 'Premium', '99.99', '2023-09-01']
+  ['John', 'Smith', '1/1/2000', '123-45-6789', '(212) 555-1000', '123 Main St', 'New York', 'NY', '10001', '1500.00', 'New York County', 'USA', 'Basic', '19.99', '2024-02-14', 'john.smith@example.org', '4111 1111 1111 1111'],
+  ['Jane', 'Doe', '5/5/1990', '987-65-4321', '(305) 555-2000', '45 Ocean Dr', 'Miami', 'FL', '33101', '2200.50', 'Miami-Dade County', 'USA', 'Pro', '49.99', '2023-11-03', 'jane.doe@example.net', '5555 5555 5555 4444'],
+  ['John', 'Smith', '1/1/2000', '123-45-6789', '(212) 555-1000', '123 Main St', 'New York', 'NY', '10001', '3100.00', 'New York County', 'USA', 'Pro', '49.99', '2024-02-14', 'john.smith@example.org', '4111 1111 1111 1111'],
+  ['Robert', 'Johnson', '7/4/1985', '555-11-2222', '(415) 555-3000', '9 Market St', 'San Francisco', 'CA', '94103', '750.25', 'San Francisco County', 'USA', 'Free', '0.00', '2024-05-20', 'r.johnson@example.org', ''],
+  ['Johnny', 'Smithly', '3/3/1970', '111-22-3333', '(312) 555-4000', '1 State St', 'Chicago', 'IL', '60601', '900.00', 'Cook County', 'USA', 'Basic', '19.99', '2023-08-09', 'johnny.smithly@example.net', '378282246310005'],
+  ['Johnathan', 'Smithson', '3/3/1970', '444-55-6666', '(312) 555-5000', '2 State St', 'Chicago', 'IL', '60601', '1200.00', 'Cook County', 'USA', 'Premium', '99.99', '2023-09-01', 'j.smithson@example.org', '6011-1111-1111-1117']
 ];
 
 // The identity buckets the legacy rows occupy: first3(first) + first3(last) + normalizedDob.
@@ -151,6 +156,31 @@ var CITY_TABLE = [
 var PLANS = ['Free', 'Basic', 'Pro', 'Premium'];
 var AMOUNT_BY_PLAN = { Free: '0.00', Basic: '19.99', Pro: '49.99', Premium: '99.99' };
 
+// Domains reserved by RFC 2606 for exactly this, so no sample address can
+// reach a real inbox. They are deliberately NOT example.com, which is what the
+// anonymizer writes, so the preview shows an address visibly changing.
+var EMAIL_DOMAINS = ['example.org', 'example.net'];
+
+// Published payment-card TEST numbers from the card networks. They pass the
+// Luhn check and belong to nobody. NEVER generate a card number randomly: a
+// random Luhn-valid number in an issued range can be somebody's real card.
+// Mixed formatting on purpose, so the sample exercises the detector.
+var TEST_CARDS = [
+  '4111 1111 1111 1111', '4012-8888-8888-1881', '4222222222222',
+  '5555 5555 5555 4444', '5105-1051-0510-5100', '378282246310005',
+  '6011 1111 1111 1117', '3566002020360505'
+];
+
+function emailFor(first, last) {
+  var f = String(first).toLowerCase().replace(/[^a-z]/g, '');
+  var l = String(last).toLowerCase().replace(/[^a-z]/g, '');
+  var domain = pick(EMAIL_DOMAINS);
+  var style = rand();
+  if (style < 0.55) return f + '.' + l + '@' + domain;
+  if (style < 0.8) return f.charAt(0) + l + '@' + domain;
+  return f + '_' + l + '@' + domain;
+}
+
 function randSsn() {
   return randInt(100, 899) + '-' + randInt(10, 99) + '-' + randInt(1000, 9999);
 }
@@ -184,6 +214,7 @@ var REPEATERS = [
     firstName: 'Maria', lastName: 'Gonzalez', dob: '9/14/1988', ssn: '201-33-4455',
     phone: '(512) 555-7712', address: '884 Sunset Blvd', city: 'Austin', state: 'TX',
     zip: '78701', county: 'Travis County', country: 'USA', signup: '2022-06-01',
+    email: 'maria.gonzalez@example.org', card: '4012-8888-8888-1881',
     plans: ['Basic', 'Basic', 'Pro'], amounts: ['19.99', '19.99', '49.99'],
     balances: ['320.00', '145.50', '0.00'],
     insertAt: [4, 54, 114]
@@ -192,6 +223,7 @@ var REPEATERS = [
     firstName: 'David', lastName: 'Chen', dob: '1979-11-02', ssn: '',
     phone: '(206) 555-7788', address: '12 Birch Ct', city: 'Seattle', state: 'WA',
     zip: '98101', county: 'King County', country: 'USA', signup: '2021-03-15',
+    email: 'd.chen@example.net', card: '',
     plans: ['Pro', 'Pro'], amounts: ['49.99', '49.99'],
     balances: ['0.00', '49.99'],
     insertAt: [24, 84]
@@ -200,6 +232,7 @@ var REPEATERS = [
     firstName: 'Priya', lastName: 'Patel', dob: '6/23/95', ssn: '344-98-1122',
     phone: '(303) 555-9091', address: '27 Meadow Ln', city: 'Denver', state: 'CO',
     zip: '80202', county: '', country: 'USA', signup: '2023-01-20',
+    email: 'priya.patel@example.org', card: '5105 1051 0510 5100',
     plans: ['Free', 'Basic'], amounts: ['0.00', '19.99'],
     balances: ['0.00', '19.99'],
     insertAt: [39, 99]
@@ -216,7 +249,8 @@ REPEATERS.forEach(function (person) {
       person.firstName, person.lastName, person.dob, person.ssn, person.phone,
       person.address, person.city, person.state, person.zip,
       person.balances[occurrenceIdx], person.county, person.country,
-      person.plans[occurrenceIdx], person.amounts[occurrenceIdx], person.signup
+      person.plans[occurrenceIdx], person.amounts[occurrenceIdx], person.signup,
+      person.email, person.card
     ];
   });
 });
@@ -236,8 +270,10 @@ function randomSingleRow() {
   var amount = AMOUNT_BY_PLAN[plan];
   var balance = chance(0.55) ? '0.00' : (randInt(1, 4200) + '.' + pad2(randInt(0, 99)));
   var signup = chance(0.05) ? '' : randSignup();
+  var email = chance(0.06) ? '' : emailFor(firstName, lastName);
+  var card = chance(0.10) ? '' : pick(TEST_CARDS);
   return [firstName, lastName, dob, ssn, phone, address, cityRec[0], cityRec[1], cityRec[2],
-    balance, county, country, plan, amount, signup];
+    balance, county, country, plan, amount, signup, email, card];
 }
 
 for (var i = 0; i < NEW_ROW_COUNT; i++) {
@@ -301,13 +337,24 @@ var csvText = lines.join('\n') + '\n';
 // ---------------------------------------------------------------------------
 var parse = require('../src/parse.js');
 var anon = require('../src/anonymize.js');
+var suggest = require('../src/suggest.js');
+
+// Safety assertion: every test card must actually pass the check digit, or the
+// sample would quietly stop demonstrating the card detection it exists to show.
+var badCards = TEST_CARDS.filter(function (c) { return !suggest.isCardLike(c); });
+if (badCards.length) {
+  console.error('ABORT: these TEST_CARDS entries do not pass the Luhn check: ' + badCards.join(', '));
+  process.exit(1);
+}
 
 var checkDs = parse.parseCsv(csvText);
 var checkMapping = {
   first_name: HEADERS.indexOf('first_name'),
   last_name: HEADERS.indexOf('last_name'),
   date_of_birth: HEADERS.indexOf('dob'),
-  special_number: HEADERS.indexOf('ssn'),
+  ssn: HEADERS.indexOf('ssn'),
+  email: HEADERS.indexOf('email'),
+  card_number: HEADERS.indexOf('card_number'),
   phone_1: HEADERS.indexOf('phone'),
   address_line_1: HEADERS.indexOf('address'),
   city: HEADERS.indexOf('city'),
@@ -320,7 +367,7 @@ var checkOut = anon.anonymizeDataset(
   checkDs, checkMapping, parse.detectColumnTypes(checkDs.headers, checkDs.rows, 1000)
 );
 var selfMapped = [];
-['first_name', 'last_name', 'dob', 'ssn', 'phone', 'address'].forEach(function (name) {
+['first_name', 'last_name', 'dob', 'ssn', 'phone', 'address', 'email', 'card_number'].forEach(function (name) {
   var idx = HEADERS.indexOf(name);
   checkDs.rows.forEach(function (row, r) {
     var original = row[idx];

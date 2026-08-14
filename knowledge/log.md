@@ -1,5 +1,12 @@
 # Knowledge Bundle Log
 
+## 2026-08-14 (second pass)
+* **Terms corrected and extended**: `special_number` renamed to `ssn`; `email` and
+  `card_number` added, making the tool's public card copy true for the first time.
+  Cards and SSNs are masked, never faked. Fake emails are unique per person and
+  empty cells stay empty. Sample dataset regenerated with the two new columns and
+  published card TEST numbers. Assertion count 153 to 202.
+
 ## 2026-08-14
 * **Column suggestions added**: `src/suggest.js` recommends a column per term from the
   column names and value shapes; the map step gained a per-row button and one

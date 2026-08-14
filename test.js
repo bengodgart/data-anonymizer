@@ -116,12 +116,14 @@ ok(anon.validateMapping({ first_name: 0, last_name: 0, date_of_birth: 1 }).lengt
 // ---------------------------------------------------------------------------
 // Fake data generation: consistent per person, correct fixed values.
 // ---------------------------------------------------------------------------
-var terms = ['first_name', 'last_name', 'special_number', 'phone_1', 'phone_2', 'address_line_1', 'city', 'state', 'zip_code', 'county', 'country'];
+var terms = ['first_name', 'last_name', 'ssn', 'card_number', 'email', 'phone_1', 'phone_2', 'address_line_1', 'city', 'state', 'zip_code', 'county', 'country'];
 var f1 = anon.buildFakePerson(keyA, terms, { phone_1: 'string', phone_2: 'number' });
 var f1b = anon.buildFakePerson(keyA, terms, { phone_1: 'string', phone_2: 'number' });
 eq(f1.first_name, f1b.first_name, 'same key -> same fake first name');
 eq(f1.city, f1b.city, 'same key -> same fake city');
-eq(f1.special_number, '***-**-****', 'special number masked');
+eq(f1.ssn, '***-**-****', 'social security number masked');
+eq(f1.card_number, '****-****-****-****', 'card number masked, not faked');
+eq(f1.email, f1.first_name.toLowerCase() + '.' + f1.last_name.toLowerCase() + '@example.com', 'fake email is built from the fake name');
 eq(f1.phone_1, '(555) 555-5555', 'string phone -> formatted');
 eq(f1.phone_2, '5555555555', 'numeric phone -> digits');
 ok(f1.first_name !== 'John', 'fake first name differs from real');
@@ -147,7 +149,7 @@ var rows = [
   ['John', 'Smith', '1/1/2000', '123-45-6789', '(212) 555-1000', '10001', 'NY', '350'], // same person as row 0
   ['Bob', 'Jones', '7/4/1985', '555-11-2222', '(415) 555-3000', '94103', 'CA', '75']
 ];
-var mapping = { first_name: 0, last_name: 1, date_of_birth: 2, special_number: 3, phone_1: 4, zip_code: 5, state: 6 };
+var mapping = { first_name: 0, last_name: 1, date_of_birth: 2, ssn: 3, phone_1: 4, zip_code: 5, state: 6 };
 var colTypes = parse.detectColumnTypes(headers, rows, 100);
 var result = anon.anonymizeDataset({ headers: headers, rows: rows }, mapping, colTypes);
 
@@ -228,6 +230,82 @@ var badVr = verify.roundTripVerify(rows, tampered, result.anon);
 ok(!badVr.pass, 'verify fails when original file is tampered');
 
 // ---------------------------------------------------------------------------
+// Required terms: first name, last name and date of birth, and nothing else.
+// Every other term must be optional, one at a time and all together.
+// ---------------------------------------------------------------------------
+var REQUIRED = { first_name: true, last_name: true, date_of_birth: true };
+var optionalTerms = anon.TERMS.filter(function (t) {
+  return !REQUIRED[t] && t !== 'full_name_last_first' && t !== 'full_name_first_last';
+});
+eq(anon.validateMapping({ first_name: 0, last_name: 1, date_of_birth: 2 }).length, 0,
+  'the three required terms alone are a complete mapping');
+optionalTerms.forEach(function (term) {
+  var m = { first_name: 0, last_name: 1, date_of_birth: 2 };
+  m[term] = 3;
+  eq(anon.validateMapping(m).length, 0, term + ' is optional and valid when assigned');
+});
+var allOptional = { first_name: 0, last_name: 1, date_of_birth: 2 };
+optionalTerms.forEach(function (term, i) { allOptional[term] = 3 + i; });
+eq(anon.validateMapping(allOptional).length, 0, 'every optional term can be assigned at once');
+eq(anon.TERMS.indexOf('special_number'), -1, 'the old "special number" term is gone');
+eq(anon.TERM_LABELS.ssn, 'Social Security number', 'the SSN term is labelled plainly');
+
+// ---------------------------------------------------------------------------
+// Email and card number.
+// ---------------------------------------------------------------------------
+var ecHeaders = ['First', 'Last', 'DOB', 'Email', 'Card'];
+var ecRows = [
+  ['John', 'Smith', '1/1/2000', 'john.smith@work.example.org', '4111 1111 1111 1111'],
+  ['Jane', 'Doe', '5/5/1990', 'jdoe@example.net', '5555-5555-5555-4444'],
+  ['John', 'Smith', '1/1/2000', 'john.smith@work.example.org', '4111 1111 1111 1111'],
+  ['Bob', 'Jones', '7/4/1985', '', '']
+];
+var ecMapping = { first_name: 0, last_name: 1, date_of_birth: 2, email: 3, card_number: 4 };
+var ecRes = anon.anonymizeDataset({ headers: ecHeaders, rows: ecRows }, ecMapping, {});
+ok(/^[a-z]+\.[a-z]+@example\.com$/.test(ecRes.anon.rows[0][3]), 'fake email is firstname.lastname at example.com (' + ecRes.anon.rows[0][3] + ')');
+eq(ecRes.anon.rows[0][3], ecRes.anon.rows[0][0].toLowerCase() + '.' + ecRes.anon.rows[0][1].toLowerCase() + '@example.com',
+  'the fake email matches the fake name in the same row');
+eq(ecRes.anon.rows[0][3], ecRes.anon.rows[2][3], 'same person keeps the same fake email across rows');
+ok(ecRes.anon.rows[0][3] !== ecRes.anon.rows[1][3], 'different people get different fake emails');
+ok(ecRes.anon.rows[0][3].indexOf('john') === -1, 'the real name is not left in the fake email');
+eq(ecRes.anon.rows[0][4], '****-****-****-****', 'card number is masked');
+eq(ecRes.anon.rows[1][4], '****-****-****-****', 'every card is masked the same way, digits and all');
+ok(ecRes.anon.rows[0][4].indexOf('1111') === -1, 'no digits of the real card survive, not even the last four');
+// Empty cells stay empty: a fake value there would invent data.
+eq(ecRes.anon.rows[3][3], '', 'a blank email stays blank');
+eq(ecRes.anon.rows[3][4], '', 'a blank card stays blank');
+ok(verify.roundTripVerify(ecRows, ecRes.original, ecRes.anon).pass, 'round trip passes with email and card mapped');
+
+// Fake emails are unique per person even when two people draw the same fake
+// name, because downstream systems treat an email as a unique key.
+var manyRows = [];
+for (var mi = 0; mi < 400; mi++) {
+  manyRows.push(['Person' + mi, 'Surname' + mi, '1/1/19' + (10 + (mi % 80)), 'p' + mi + '@example.net']);
+}
+var manyRes = anon.anonymizeDataset(
+  { headers: ['F', 'L', 'D', 'E'], rows: manyRows },
+  { first_name: 0, last_name: 1, date_of_birth: 2, email: 3 }, {}
+);
+var emailSeen = {};
+var emailDupes = 0;
+var keyCol2 = manyRes.anon.headers.length - 1;
+for (mi = 0; mi < manyRes.anon.rows.length; mi++) {
+  var em = manyRes.anon.rows[mi][3];
+  var who = manyRes.anon.rows[mi][keyCol2];
+  if (emailSeen[em] && emailSeen[em] !== who) emailDupes++;
+  emailSeen[em] = who;
+}
+eq(emailDupes, 0, 'no fake email is shared by two different people across 400 of them');
+ok(Object.keys(emailSeen).length === 400, 'each of the 400 people got their own fake email');
+// Row order must not change who gets which email.
+var reversed = anon.anonymizeDataset(
+  { headers: ['F', 'L', 'D', 'E'], rows: manyRows.slice().reverse() },
+  { first_name: 0, last_name: 1, date_of_birth: 2, email: 3 }, {}
+);
+eq(reversed.anon.rows[reversed.anon.rows.length - 1][3], manyRes.anon.rows[0][3],
+  'reversing the rows gives the same person the same fake email');
+
+// ---------------------------------------------------------------------------
 // Column suggestions: the recommendation engine behind the per-row "Use X"
 // buttons and "Accept all suggestions".
 // ---------------------------------------------------------------------------
@@ -253,7 +331,9 @@ var sampleNamed = named(sampleSug, sampleData.headers);
 eq(sampleNamed.first_name, 'first_name', 'sample: first name suggested');
 eq(sampleNamed.last_name, 'last_name', 'sample: last name suggested');
 eq(sampleNamed.date_of_birth, 'dob', 'sample: dob suggested');
-eq(sampleNamed.special_number, 'ssn', 'sample: ssn suggested');
+eq(sampleNamed.ssn, 'ssn', 'sample: ssn suggested');
+eq(sampleNamed.email, 'email', 'sample: email suggested');
+eq(sampleNamed.card_number, 'card_number', 'sample: card number suggested');
 eq(sampleNamed.phone_1, 'phone', 'sample: phone suggested');
 eq(sampleNamed.address_line_1, 'address', 'sample: address suggested');
 eq(sampleNamed.city, 'city', 'sample: city suggested');
@@ -261,7 +341,7 @@ eq(sampleNamed.state, 'state', 'sample: state suggested');
 eq(sampleNamed.zip_code, 'zip', 'sample: zip suggested');
 eq(sampleNamed.county, 'county', 'sample: county suggested');
 eq(sampleNamed.country, 'country', 'sample: country suggested');
-eq(suggest.countSuggestions(sampleSug), 11, 'sample: exactly the 11 personal columns suggested');
+eq(suggest.countSuggestions(sampleSug), 13, 'sample: exactly the 13 personal columns suggested');
 // Accepting every suggestion must produce a mapping the tool accepts as valid,
 // or the one-click demo dead-ends on an error.
 eq(anon.validateMapping(flatten(sampleSug)).length, 0, 'sample: accepting all suggestions validates');
@@ -308,7 +388,7 @@ var blind = named(suggest.suggestMapping(blindHeaders, [
   ['123-45-6789', '(212) 555-1000', '10001', 'NY'],
   ['987-65-4321', '(305) 555-2000', '33101', 'FL']
 ]), blindHeaders);
-eq(blind.special_number, 'col1', 'social security shape recognized without a header');
+eq(blind.ssn, 'col1', 'social security shape recognized without a header');
 eq(blind.phone_1, 'col2', 'phone shape recognized without a header');
 eq(blind.zip_code, 'col3', 'zip shape recognized without a header');
 eq(blind.state, 'col4', 'state code shape recognized without a header');
@@ -341,7 +421,31 @@ eq(solo.phone_2, undefined, 'phone 2 left empty when there is only one phone col
 eq(suggest.countSuggestions(suggest.suggestMapping(['q1', 'q2'], [['3', '4']])), 0, 'unrecognizable file suggests nothing');
 eq(suggest.countSuggestions(suggest.suggestMapping([], [])), 0, 'empty file suggests nothing');
 
+// Email and card columns are recognized by name and by shape.
+var ecsHeaders = ['first', 'last', 'dob', 'Email Address', 'Credit Card Number', 'Card Type', 'contact'];
+var ecs = named(suggest.suggestMapping(ecsHeaders, [
+  ['John', 'Smith', '1/1/1980', 'a@b.example.org', '4111111111111111', 'Visa', 'x@y.example.net']
+]), ecsHeaders);
+eq(ecs.email, 'Email Address', 'email address column matched by name');
+eq(ecs.card_number, 'Credit Card Number', 'credit card column matched by name');
+ok(ecs.card_number !== 'Card Type', 'a card TYPE column is not the card number');
+ok(ecs.address_line_1 !== 'Email Address', 'email address is still not a street address');
+var blindEc = named(suggest.suggestMapping(['a', 'b'], [
+  ['someone@example.org', '4012888888881881'], ['other@example.net', '5105105105105100']
+]), ['a', 'b']);
+eq(blindEc.email, 'a', 'email shape recognized without a header');
+eq(blindEc.card_number, 'b', 'card shape recognized without a header');
+eq(blindEc.phone_1, undefined, 'a card number is not mistaken for a phone number');
+
 // Shape helpers, directly.
+ok(suggest.passesLuhn('4111111111111111'), 'a real test card passes the check digit');
+ok(!suggest.passesLuhn('4111111111111112'), 'one wrong digit fails the check digit');
+ok(suggest.isCardLike('378282246310005'), 'a fifteen digit Amex number reads as a card');
+ok(!suggest.isCardLike('2125551000'), 'a ten digit phone number does not read as a card');
+ok(!suggest.isPhoneLike('378282246310005'), 'a fifteen digit card does not read as a phone');
+ok(suggest.isEmailLike('a.b@example.co.uk'), 'a multi-part domain reads as an email');
+ok(!suggest.isEmailLike('not an email'), 'plain text does not read as an email');
+ok(!suggest.isEmailLike('a@b'), 'a domain with no dot does not read as an email');
 ok(suggest.isPhoneLike('(212) 555-1000'), 'formatted phone reads as a phone');
 ok(!suggest.isPhoneLike('2024-02-14'), 'an ISO date does not read as a phone');
 ok(!suggest.isPhoneLike('1500.00'), 'a decimal amount does not read as a phone');
