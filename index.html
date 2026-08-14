@@ -77,6 +77,10 @@
         Assign the personal-data columns to a common term. First name, last name, and date of birth
         are required. A full-name column can satisfy both first and last name.
       </p>
+      <div class="suggest-bar" id="suggestBar" hidden>
+        <p class="suggest-text" id="suggestText"></p>
+        <button type="button" class="btn btn-accept-all" id="acceptAllBtn">Accept all suggestions</button>
+      </div>
       <div class="map-grid" id="mapGrid"></div>
       <div class="actions">
         <button type="button" class="btn btn-ghost" data-goto="upload">Start over</button>
@@ -124,6 +128,7 @@
   <script src="src/zipdata.js"></script>
   <script src="src/parse.js"></script>
   <script src="src/anonymize.js"></script>
+  <script src="src/suggest.js"></script>
   <script src="src/verify.js"></script>
   <script src="app.js"></script>
 </body>

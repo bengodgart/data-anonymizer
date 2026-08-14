@@ -15,6 +15,7 @@
     headers: [],
     sampleRows: [],
     csvText: '',
+    suggestions: {},
     result: null
   };
 
@@ -25,6 +26,9 @@
     fileInput: document.getElementById('fileInput'),
     dropzone: document.getElementById('dropzone'),
     sheetChoices: document.getElementById('sheetChoices'),
+    suggestBar: document.getElementById('suggestBar'),
+    suggestText: document.getElementById('suggestText'),
+    acceptAllBtn: document.getElementById('acceptAllBtn'),
     mapGrid: document.getElementById('mapGrid'),
     runBtn: document.getElementById('runBtn'),
     progressText: document.getElementById('progressText'),
@@ -139,6 +143,8 @@
       show('upload');
       return;
     }
+    // Recommendations only. Nothing is assigned until the user says so.
+    state.suggestions = DASuggest.suggestMapping(state.headers, state.sampleRows);
     buildMapGrid();
     show('map');
   }
@@ -196,12 +202,114 @@
 
       row.appendChild(label);
       row.appendChild(select);
+      row.appendChild(buildSuggestCell(term));
       el.mapGrid.appendChild(row);
     });
     liveValidate();
   }
 
   function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+  function columnLabel(idx) {
+    return state.headers[idx] || ('Column ' + (idx + 1));
+  }
+
+  // -------------------------------------------------------------------------
+  // Suggestions. Each row offers its own one-click fix; the bar at the top
+  // takes all of them at once. Neither ever runs on its own.
+  // -------------------------------------------------------------------------
+  function buildSuggestCell(term) {
+    var cell = document.createElement('div');
+    cell.className = 'map-suggest';
+    if (state.suggestions[term]) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-suggest';
+      btn.dataset.term = term;
+      btn.addEventListener('click', function () {
+        applySuggestion(term);
+      });
+      cell.appendChild(btn);
+    } else {
+      var none = document.createElement('span');
+      none.className = 'map-suggest-none';
+      none.textContent = 'No match found';
+      cell.appendChild(none);
+    }
+    return cell;
+  }
+
+  function selectFor(term) {
+    return el.mapGrid.querySelector('select[data-term="' + term + '"]');
+  }
+
+  // Point one dropdown at its suggested column. A column can only be mapped
+  // once, so it is taken off anything else that holds it.
+  function assignSuggestion(term) {
+    var suggestion = state.suggestions[term];
+    var target = selectFor(term);
+    if (!suggestion || !target) return;
+    Array.prototype.forEach.call(el.mapGrid.querySelectorAll('select'), function (sel) {
+      if (sel !== target && sel.value === String(suggestion.col)) sel.value = '';
+    });
+    target.value = String(suggestion.col);
+  }
+
+  function applySuggestion(term) {
+    assignSuggestion(term);
+    liveValidate();
+  }
+
+  function acceptAllSuggestions() {
+    TERMS.forEach(function (term) {
+      if (state.suggestions[term]) assignSuggestion(term);
+    });
+    liveValidate();
+  }
+
+  function refreshSuggestUi() {
+    var total = 0;
+    var pending = 0;
+    Array.prototype.forEach.call(el.mapGrid.querySelectorAll('.btn-suggest'), function (btn) {
+      var suggestion = state.suggestions[btn.dataset.term];
+      if (!suggestion) return;
+      total++;
+      var sel = selectFor(btn.dataset.term);
+      var name = columnLabel(suggestion.col);
+      if (sel && sel.value === String(suggestion.col)) {
+        btn.disabled = true;
+        btn.textContent = 'Suggestion applied';
+        btn.title = 'This is set to the column "' + name + '". ' + suggestion.reason;
+      } else {
+        pending++;
+        btn.disabled = false;
+        btn.textContent = 'Use "' + truncate(name, 13) + '"';
+        btn.title = 'Set this to the column "' + name + '". ' + suggestion.reason;
+      }
+    });
+    updateSuggestBar(total, pending);
+  }
+
+  function updateSuggestBar(total, pending) {
+    if (!total) {
+      el.suggestBar.hidden = true;
+      return;
+    }
+    el.suggestBar.hidden = false;
+    if (pending > 0) {
+      el.suggestText.textContent = total === 1
+        ? 'One column in your file looks like a match. Check it before you continue.'
+        : total + ' columns in your file look like a match. Check them before you continue.';
+      el.acceptAllBtn.disabled = false;
+      el.acceptAllBtn.textContent = 'Accept all suggestions';
+    } else {
+      el.suggestText.textContent = total === 1
+        ? 'The suggested column is filled in below. Change it if it is wrong.'
+        : 'All ' + total + ' suggested columns are filled in below. Change any that are wrong.';
+      el.acceptAllBtn.disabled = true;
+      el.acceptAllBtn.textContent = 'All suggestions applied';
+    }
+  }
 
   function readMapping() {
     var mapping = {};
@@ -224,6 +332,7 @@
     });
     el.runBtn.disabled = errors.length > 0;
     showErrors(errors);
+    refreshSuggestUi();
     return errors;
   }
 
@@ -392,6 +501,8 @@
   function restart() {
     state.result = null;
     state.csvText = '';
+    state.suggestions = {};
+    el.suggestBar.hidden = true;
     el.fileInput.value = '';
     showErrors([]);
     show('upload');
@@ -411,6 +522,7 @@
     if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
   });
   el.runBtn.addEventListener('click', run);
+  el.acceptAllBtn.addEventListener('click', acceptAllSuggestions);
   el.restartBtn.addEventListener('click', restart);
   Array.prototype.forEach.call(document.querySelectorAll('[data-goto]'), function (b) {
     b.addEventListener('click', function () { show(b.dataset.goto); });

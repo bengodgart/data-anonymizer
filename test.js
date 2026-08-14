@@ -9,6 +9,7 @@ var parse = require('./src/parse.js');
 var anon = require('./src/anonymize.js');
 var verify = require('./src/verify.js');
 var zipdata = require('./src/zipdata.js');
+var suggest = require('./src/suggest.js');
 
 var passed = 0;
 var failed = 0;
@@ -227,10 +228,136 @@ var badVr = verify.roundTripVerify(rows, tampered, result.anon);
 ok(!badVr.pass, 'verify fails when original file is tampered');
 
 // ---------------------------------------------------------------------------
+// Column suggestions: the recommendation engine behind the per-row "Use X"
+// buttons and "Accept all suggestions".
+// ---------------------------------------------------------------------------
+// A helper that flattens { term: {col} } into the { term: col } shape the rest
+// of the tool speaks, which is also what the UI writes into the dropdowns.
+function flatten(sug) {
+  var out = {};
+  for (var t in sug) { if (sug.hasOwnProperty(t)) out[t] = sug[t].col; }
+  return out;
+}
+function named(sug, headers) {
+  var out = {};
+  for (var t in sug) { if (sug.hasOwnProperty(t)) out[t] = headers[sug[t].col]; }
+  return out;
+}
+
+// The shipped sample file: this is the one-click demo path, so it has to land
+// every personal column and touch none of the others.
+var sampleCsv = require('fs').readFileSync(__dirname + '/samples/sample-people.csv', 'utf8');
+var sampleData = parse.parseCsv(sampleCsv);
+var sampleSug = suggest.suggestMapping(sampleData.headers, sampleData.rows);
+var sampleNamed = named(sampleSug, sampleData.headers);
+eq(sampleNamed.first_name, 'first_name', 'sample: first name suggested');
+eq(sampleNamed.last_name, 'last_name', 'sample: last name suggested');
+eq(sampleNamed.date_of_birth, 'dob', 'sample: dob suggested');
+eq(sampleNamed.special_number, 'ssn', 'sample: ssn suggested');
+eq(sampleNamed.phone_1, 'phone', 'sample: phone suggested');
+eq(sampleNamed.address_line_1, 'address', 'sample: address suggested');
+eq(sampleNamed.city, 'city', 'sample: city suggested');
+eq(sampleNamed.state, 'state', 'sample: state suggested');
+eq(sampleNamed.zip_code, 'zip', 'sample: zip suggested');
+eq(sampleNamed.county, 'county', 'sample: county suggested');
+eq(sampleNamed.country, 'country', 'sample: country suggested');
+eq(suggest.countSuggestions(sampleSug), 11, 'sample: exactly the 11 personal columns suggested');
+// Accepting every suggestion must produce a mapping the tool accepts as valid,
+// or the one-click demo dead-ends on an error.
+eq(anon.validateMapping(flatten(sampleSug)).length, 0, 'sample: accepting all suggestions validates');
+// Non-personal columns stay out of it.
+var sampleCols = Object.keys(sampleNamed).map(function (t) { return sampleNamed[t]; });
+ok(sampleCols.indexOf('balance') === -1, 'sample: balance not suggested');
+ok(sampleCols.indexOf('plan') === -1, 'sample: plan not suggested');
+ok(sampleCols.indexOf('monthly_amount') === -1, 'sample: monthly amount not suggested');
+ok(sampleCols.indexOf('signup_date') === -1, 'sample: signup date not suggested');
+
+// Real-world column names, plus the traps that a naive matcher falls into.
+var messyHeaders = ['Customer First Name', 'Customer Last Name', 'Patient DOB', 'Email Address',
+  'Statement Date', 'Plan Name', 'Capacity', 'HomePhone', 'Mobile', 'Street Address', 'Apt', 'Postal Code'];
+var messyRows = [['John', 'Smith', '1/1/1980', 'a@b.com', '2024-01-01', 'Gold', '120',
+  '(212) 555-1000', '2125559999', '1 Main St', '4B', '10001']];
+var messy = named(suggest.suggestMapping(messyHeaders, messyRows), messyHeaders);
+eq(messy.first_name, 'Customer First Name', 'wordy header still matches first name');
+eq(messy.last_name, 'Customer Last Name', 'wordy header still matches last name');
+eq(messy.date_of_birth, 'Patient DOB', 'prefixed DOB matches');
+eq(messy.phone_1, 'HomePhone', 'run-together phone header matches');
+eq(messy.phone_2, 'Mobile', 'a second phone column fills phone 2');
+eq(messy.address_line_1, 'Street Address', 'street address matches address line 1');
+eq(messy.address_line_2, 'Apt', 'apartment matches address line 2');
+eq(messy.zip_code, 'Postal Code', 'postal code matches zip');
+ok(messy.address_line_1 !== 'Email Address' && messy.address_line_2 !== 'Email Address', 'email address is not a street address');
+ok(messy.state !== 'Statement Date', 'statement date is not a state');
+ok(messy.date_of_birth !== 'Statement Date', 'a date column is not a birth date');
+ok(messy.city !== 'Capacity', 'capacity is not a city');
+ok(messy.full_name_first_last !== 'Plan Name' && messy.full_name_last_first !== 'Plan Name', 'plan name is not a person name');
+
+// A whole-name column: the values decide which way round the name is written.
+var lfHeaders = ['Name', 'Birth Date'];
+var lf = named(suggest.suggestMapping(lfHeaders, [['Smith, John', '1/1/1980'], ['Doe, Jane', '2/2/1990']]), lfHeaders);
+eq(lf.full_name_last_first, 'Name', 'comma values pick the last-first term');
+eq(lf.full_name_first_last, undefined, 'only one full-name term is ever suggested');
+var fl3 = named(suggest.suggestMapping(lfHeaders, [['John Smith', '1/1/1980'], ['Jane Doe', '2/2/1990']]), lfHeaders);
+eq(fl3.full_name_first_last, 'Name', 'plain values pick the first-last term');
+eq(fl3.full_name_last_first, undefined, 'still only one full-name term');
+eq(fl3.date_of_birth, 'Birth Date', 'birth date matches alongside a name column');
+
+// Values alone carry a column when its name says nothing.
+var blindHeaders = ['col1', 'col2', 'col3', 'col4'];
+var blind = named(suggest.suggestMapping(blindHeaders, [
+  ['123-45-6789', '(212) 555-1000', '10001', 'NY'],
+  ['987-65-4321', '(305) 555-2000', '33101', 'FL']
+]), blindHeaders);
+eq(blind.special_number, 'col1', 'social security shape recognized without a header');
+eq(blind.phone_1, 'col2', 'phone shape recognized without a header');
+eq(blind.zip_code, 'col3', 'zip shape recognized without a header');
+eq(blind.state, 'col4', 'state code shape recognized without a header');
+eq(blind.date_of_birth, undefined, 'a date shape alone never claims date of birth');
+
+// A birth-date header whose values are plainly not dates is a name collision.
+var vetoHeaders = ['dob', 'first', 'last'];
+var veto = suggest.suggestMapping(vetoHeaders, [['unknown', 'John', 'Smith'], ['n/a', 'Jane', 'Doe']]);
+eq(veto.date_of_birth, undefined, 'birth date rejected when the values are not dates');
+
+// A lone second-slot match moves up into the first slot.
+var soloHeaders = ['Mobile', 'First', 'Last', 'DOB'];
+var solo = named(suggest.suggestMapping(soloHeaders, [['2125551000', 'A', 'B', '1/1/1980']]), soloHeaders);
+eq(solo.phone_1, 'Mobile', 'a single phone column fills phone 1, not phone 2');
+eq(solo.phone_2, undefined, 'phone 2 left empty when there is only one phone column');
+
+// No suggestion ever double-maps a column, in any of the cases above.
+[sampleSug, suggest.suggestMapping(messyHeaders, messyRows)].forEach(function (sug, i) {
+  var seen = {};
+  var dupes = 0;
+  for (var t in sug) {
+    if (!sug.hasOwnProperty(t)) continue;
+    if (seen[sug[t].col]) dupes++;
+    seen[sug[t].col] = true;
+  }
+  eq(dupes, 0, 'no column suggested twice (case ' + (i + 1) + ')');
+});
+
+// A file with nothing recognizable suggests nothing rather than guessing.
+eq(suggest.countSuggestions(suggest.suggestMapping(['q1', 'q2'], [['3', '4']])), 0, 'unrecognizable file suggests nothing');
+eq(suggest.countSuggestions(suggest.suggestMapping([], [])), 0, 'empty file suggests nothing');
+
+// Shape helpers, directly.
+ok(suggest.isPhoneLike('(212) 555-1000'), 'formatted phone reads as a phone');
+ok(!suggest.isPhoneLike('2024-02-14'), 'an ISO date does not read as a phone');
+ok(!suggest.isPhoneLike('1500.00'), 'a decimal amount does not read as a phone');
+ok(suggest.isSpecialNumberLike('123-45-6789'), 'dashed social security number recognized');
+ok(!suggest.isSpecialNumberLike('123456789'), 'a bare nine-digit number is not assumed to be a social security number');
+ok(suggest.isZipLike('10001') && suggest.isZipLike('10001-1234'), 'zip and zip+4 recognized');
+ok(!suggest.isZipLike('1000'), 'four digits is not a zip');
+ok(suggest.isStateCodeLike('ny'), 'state code recognized case-insensitively');
+ok(!suggest.isStateCodeLike('XX'), 'a non-state code is rejected');
+ok(suggest.isDateLike('1/1/2000') && suggest.isDateLike('2000-01-01'), 'common date formats recognized');
+
+// ---------------------------------------------------------------------------
 // No em-dashes anywhere in shipped source (copy rule).
 // ---------------------------------------------------------------------------
 var fs = require('fs');
-var files = ['src/parse.js', 'src/anonymize.js', 'src/verify.js', 'src/zipdata.js', 'test.js'];
+var files = ['src/parse.js', 'src/anonymize.js', 'src/suggest.js', 'src/verify.js', 'src/zipdata.js', 'app.js', 'test.js'];
 files.forEach(function (fp) {
   var content = fs.readFileSync(__dirname + '/' + fp, 'utf8');
   var emDash = String.fromCharCode(0x2014);

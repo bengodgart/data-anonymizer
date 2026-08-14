@@ -1,5 +1,12 @@
 # Knowledge Bundle Log
 
+## 2026-08-14
+* **Column suggestions added**: `src/suggest.js` recommends a column per term from the
+  column names and value shapes; the map step gained a per-row button and one
+  accept-all button. Bundle updated for the new module and the assertion count
+  (94 to 153). Verified with `node test.js` and a headless browser pass over the
+  shipped sample file.
+
 ## 2026-07-29
 * **Authoring pass**: every document reviewed and written from this repo's own files
   (CLAUDE.md, AGENTS.md, SETUP.md, PRD.md, README.md, manifests). `live_url` and repo

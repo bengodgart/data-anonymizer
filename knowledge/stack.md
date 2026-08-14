@@ -7,7 +7,7 @@ framework: 'None. Plain HTML, CSS and JavaScript, plus a Web Worker.'
 build: 'None. Static site, no dependencies to install.'
 storage: 'None. No server, no upload, no storage.'
 hosting: GitHub Pages
-tests: 'node test.js, 94 assertions'
+tests: 'node test.js, 153 assertions'
 generated:
   by: claude-opus-5
   at: '2026-07-29T04:31:42+00:00'
@@ -26,7 +26,7 @@ status: stable
   bundled third-party code, `samples/` for example inputs, `scripts/` for tooling.
 * **Input formats**: `.csv`, `.xlsx` and `.xls`. Multi-sheet workbooks let you pick a sheet.
 * **Hosting**: GitHub Pages.
-* **Tests**: `node test.js`, 94 assertions, dependency free, printing `ALL PASS`.
+* **Tests**: `node test.js`, 153 assertions, dependency free, printing `ALL PASS`.
 
 ## The safety mechanic
 

@@ -149,9 +149,11 @@ h3 { font-size: 1.05rem; margin: 22px 0 10px; }
   color: var(--text);
   transition: background 0.15s, border-color 0.15s, opacity 0.15s;
 }
-.btn:hover { border-color: var(--accent); }
+/* Hover is guarded on :not(:disabled) everywhere. A control that lights up and
+   then refuses the click reads as broken rather than unavailable. */
+.btn:not(:disabled):hover { border-color: var(--accent); }
 .btn-primary { background: var(--accent-2); border-color: var(--accent-2); color: #fff; font-weight: 600; }
-.btn-primary:hover { background: #2f74e0; border-color: #2f74e0; }
+.btn-primary:not(:disabled):hover { background: #2f74e0; border-color: #2f74e0; }
 .btn-ghost { background: transparent; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; border-color: var(--border); }
 .actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
@@ -170,11 +172,28 @@ h3 { font-size: 1.05rem; margin: 22px 0 10px; }
 .segmented .seg:hover { border-color: var(--accent); }
 .segmented .seg.selected { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
 
+/* Suggestions bar, above the mapping grid */
+.suggest-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid #2f4c73;
+  border-radius: 8px;
+}
+/* The sentence takes the slack and the button keeps its width, so nothing on
+   the row moves when the wording changes. */
+.suggest-text { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 0.92rem; }
+.btn-accept-all { flex: 0 0 auto; border-color: var(--accent); color: var(--accent); }
+.btn-accept-all:not(:disabled):hover { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+
 /* Mapping grid */
 .map-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 16px; }
 .map-row {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 220px minmax(0, 1fr) 190px;
   gap: 14px;
   align-items: center;
   padding: 10px 12px;
@@ -204,6 +223,26 @@ h3 { font-size: 1.05rem; margin: 22px 0 10px; }
 }
 .map-row select:focus { outline: none; border-color: var(--accent); }
 .map-row.satisfied { border-color: #21402c; }
+
+/* Per-row suggestion. The cell is a fixed width so the dropdown next to it does
+   not resize when the button changes from an offer to a confirmation. */
+.map-suggest { display: flex; }
+.btn-suggest {
+  width: 100%;
+  display: block;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-suggest:not(:disabled) { border-color: #2f4c73; color: var(--accent); }
+.map-suggest-none {
+  width: 100%;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
 
 /* Error alert */
 .error-alert {
@@ -276,8 +315,15 @@ table.preview .rowlabel { color: var(--muted); font-size: 0.72rem; text-transfor
 .site-footer { border-top: 1px solid var(--border); margin: 30px 0 40px; padding-top: 18px; }
 .site-footer p { color: var(--muted); font-size: 0.85rem; }
 
+@media (max-width: 760px) {
+  .map-row { grid-template-columns: minmax(0, 1fr) 170px; }
+  .map-label { grid-column: 1 / -1; }
+}
+
 @media (max-width: 560px) {
   .map-row { grid-template-columns: 1fr; }
+  .map-label { grid-column: auto; }
+  .suggest-bar { flex-direction: column; align-items: stretch; }
   h1 { font-size: 1.5rem; }
 }
 

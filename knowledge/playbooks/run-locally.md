@@ -20,7 +20,8 @@ The deployed copy is at https://bengodgart.github.io/data-anonymizer/.
 
 * `node test.js` runs the correctness core: CSV parsing, column-type detection, name
   splitting, date normalisation, `anon_key` generation, collision resolution, fake
-  generation and the round-trip verifier. 94 assertions, ending `ALL PASS`.
+  generation, the column suggestions and the round-trip verifier. 153 assertions,
+  ending `ALL PASS`.
 
 ## Common failures
 

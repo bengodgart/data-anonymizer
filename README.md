@@ -13,6 +13,8 @@ Live: https://bengodgart.github.io/data-anonymizer/
 2. You map the personal-data columns to common terms (first name, last name,
    date of birth, phone, address, and so on). First name, last name, and date of
    birth are required; a full-name column can satisfy first and last together.
+   The tool reads your column names and values first and offers a match for each
+   one it recognizes, so this step is usually one click (see below).
 3. The tool produces **two files**, both carrying a shared `anon_key`:
    - `<name>_anonymized.csv`: realistic fake data in place of the personal
      fields.
@@ -21,6 +23,39 @@ Live: https://bengodgart.github.io/data-anonymizer/
 4. Before you can download, it runs a **round-trip test**: it merges the two
    files back together on `anon_key` and confirms the original data is reproduced
    exactly. If that fails, downloads stay locked.
+
+## Column suggestions
+
+Mapping fifteen terms by hand is the slowest part of the tool, so it recommends
+the ones it can recognize. Every recommendation is an offer, never an action:
+
+- Each row gets its own button (`Use "dob"`) that sets that one dropdown.
+- One button at the top accepts every recommendation at once.
+- Nothing is filled in until you click, and every dropdown still holds the full
+  list of columns, so a wrong guess costs one click to correct.
+
+Two signals decide a match, in this order of trust:
+
+1. **The column name**, matched against everyday spellings, so `dob`,
+   `Date of Birth`, and `Patient DOB` all find date of birth.
+2. **The values**, matched against shapes that are recognizable on sight: a
+   social security number, a phone number, a five digit ZIP, a state code, a
+   name written `Last, First`.
+
+A name match always outranks a shape match, and the engine will not suggest the
+same column twice, so accepting everything always produces a mapping the tool
+accepts.
+
+Two guesses it deliberately refuses to make:
+
+- **A date shape alone never means date of birth.** A signup date and a birth
+  date look identical, and a wrong birth date quietly corrupts every `anon_key`.
+  It wants the column name to say so.
+- **Words that look right and are wrong are vetoed**, so `Email Address` is not
+  a street address, `Statement Date` is not a state, and `Plan Name` is not a
+  person's name.
+
+The engine lives in `src/suggest.js` and is covered by the test suite.
 
 ## The `anon_key`
 
@@ -91,15 +126,16 @@ python -m http.server 8000
 ## Tests
 
 The correctness core (CSV parsing, column-type detection, name splitting, date
-normalization, `anon_key` generation, collision resolution, fake generation, and
-the round-trip verifier) is covered by a dependency-free Node test:
+normalization, `anon_key` generation, collision resolution, fake generation, the
+column suggestions, and the round-trip verifier) is covered by a dependency-free
+Node test:
 
 ```
 node test.js
 ```
 
 ```
-Assertions passed: 94
+Assertions passed: 153
 Assertions failed: 0
 ALL PASS
 ```

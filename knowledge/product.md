@@ -26,6 +26,8 @@ Whoever is about to hand a spreadsheet of real people to someone who should not 
 
 Turns a CSV or Excel file of real people into safe, realistic fake data, with a collision-resolving `anon_key` so rows stay joinable, and a round-trip merge test so you can prove the mapping holds. Everything runs in the browser - no server, no upload.
 
+The mapping step reads the column names and values and recommends a match for each term it recognizes, offered as a button per row plus one button that accepts every recommendation at once. Nothing is assigned until the user clicks, so a real file is one click to map and a demo needs no setup at all. Detail in `README.md`, engine in `src/suggest.js`.
+
 ## Current state
 
 Shipped and public.
