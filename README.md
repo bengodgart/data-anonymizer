@@ -86,6 +86,17 @@ separate fake records, because the fake data is seeded from the full signature
 rather than the shared bucket. People with no collision keep a clean, unsuffixed
 key.
 
+### Rows with no identity
+
+A row with no name and no date of birth has nothing in it that identifies a
+person. Hashing that emptiness would give every such row the same key and merge
+strangers into one person, so each different row gets its own key instead,
+prefixed `unknown-` so you can tell them apart from real keys and filter them
+out of a head count. Rows that are identical in every column are
+indistinguishable, so they do stay together. The results screen reports how many
+there were. A partial identity is still an identity: a last name alone, or a
+date of birth alone, is enough to key on.
+
 Worked example on `samples/sample-people.csv`:
 
 ```
@@ -150,14 +161,15 @@ node test.js
 ```
 
 ```
-Assertions passed: 202
+Assertions passed: 230
 Assertions failed: 0
 ALL PASS
 ```
 
-The SHA-256 implementation is checked against published known-answer vectors, and
-the round-trip verifier is checked with both a passing case and a deliberately
-tampered file.
+The SHA-256 implementation is checked against published known-answer vectors and
+cross-checked against Node's own `crypto` for ten inputs including Chinese,
+Russian, Arabic and emoji, and the round-trip verifier is checked with both a
+passing case and a deliberately tampered file.
 
 ## Third-party code
 

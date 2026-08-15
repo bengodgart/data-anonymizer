@@ -54,6 +54,33 @@
 
   var ADDRESS_TERMS = ['address_line_1', 'address_line_2', 'city', 'state', 'zip_code', 'county', 'country'];
 
+  // Encode a JS string as UTF-8 bytes, one byte per character, so the hash
+  // below can consume any name in any script. Without this, a name outside
+  // Latin-1 (Chinese, Japanese, Korean, Arabic, an emoji) made the hash bail
+  // out and return an empty string, and every such person then shared one
+  // signature and therefore one fake identity. ASCII passes through unchanged,
+  // so keys for Latin-alphabet names are exactly what they always were.
+  function utf8Bytes(str) {
+    var out = '';
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      if (c < 0x80) {
+        out += String.fromCharCode(c);
+      } else if (c < 0x800) {
+        out += String.fromCharCode(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+      } else if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length &&
+                 str.charCodeAt(i + 1) >= 0xdc00 && str.charCodeAt(i + 1) <= 0xdfff) {
+        var cp = 0x10000 + ((c - 0xd800) << 10) + (str.charCodeAt(i + 1) - 0xdc00);
+        out += String.fromCharCode(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f),
+          0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+        i++;
+      } else {
+        out += String.fromCharCode(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+      }
+    }
+    return out;
+  }
+
   // ---------------------------------------------------------------------------
   // Pure-JS SHA-256 (returns lowercase hex). Deterministic, sync, dependency-free.
   // ---------------------------------------------------------------------------
@@ -85,11 +112,13 @@
     // Fresh working copy of the initial hash values each call.
     hash = hash.slice(0, 8);
 
+    ascii = utf8Bytes(String(ascii == null ? '' : ascii));
+    asciiBitLength = ascii.length * 8;
+
     ascii += '\x80';
     while ((ascii.length % 64) - 56) ascii += '\x00';
     for (i = 0; i < ascii.length; i++) {
       var j = ascii.charCodeAt(i);
-      if (j >> 8) return ''; // ASCII only; callers pass hex/ascii key strings.
       words[i >> 2] |= j << (((3 - i) % 4) * 8);
     }
     words[words.length] = (asciiBitLength / maxWord) | 0;
@@ -360,6 +389,23 @@
   // The full-identity signature: the COMPLETE normalized first name, last name,
   // and DOB. This is what genuinely identifies a person. It is what lets us tell
   // two people apart even when their first3+last3+DOB (the base bucket) collide.
+  // Keys for rows that carry no identity are prefixed so nobody mistakes one
+  // for a person, and so they can be filtered out of a count of people.
+  var UNIDENTIFIED_PREFIX = 'unknown-';
+
+  // A stable stand-in for a row that has no identity: its whole content, in
+  // column order, escaped so no combination of cell values can imitate another
+  // row. Row position is deliberately not used, so re-running on a sorted copy
+  // of the same file produces the same keys.
+  function rowFingerprint(row) {
+    var parts = [];
+    for (var i = 0; i < row.length; i++) {
+      var v = row[i] == null ? '' : String(row[i]);
+      parts.push(v.replace(/\\/g, '\\\\').replace(/\|/g, '\\|'));
+    }
+    return parts.join('|');
+  }
+
   function identitySignature(identity) {
     return String(identity.firstName).trim().toLowerCase() + '|' +
       String(identity.lastName).trim().toLowerCase() + '|' + identity.dobNorm;
@@ -388,12 +434,28 @@
     var rowInfo = new Array(rows.length);
     var buckets = {}; // baseKey -> { signature: true, ... }
     var people = {};  // sigHash -> true, one entry per distinct person
+    var unidentifiedRows = 0;
     for (var r = 0; r < rows.length; r++) {
       var identity = deriveIdentity(rows[r], mapping);
-      var baseKey = sha256Hex(anonKeyRaw(identity)).slice(0, 16);
-      var sig = identitySignature(identity);
+      var raw = anonKeyRaw(identity);
+      var baseKey, sig;
+      var identified = raw !== '';
+      if (identified) {
+        baseKey = sha256Hex(raw).slice(0, 16);
+        sig = identitySignature(identity);
+      } else {
+        // No name and no date of birth: there is nothing here that identifies a
+        // person. Hashing that emptiness would give every such row the same key
+        // and merge strangers into one person, so each distinct row becomes its
+        // own record instead, under a key that says so. Two rows that are
+        // identical in every column are indistinguishable and do stay together.
+        var rowText = rowFingerprint(rows[r]);
+        baseKey = UNIDENTIFIED_PREFIX + sha256Hex(rowText).slice(0, 12);
+        sig = 'unidentified|' + rowText;
+        unidentifiedRows++;
+      }
       var sigHash = sha256Hex(sig);
-      rowInfo[r] = { baseKey: baseKey, sig: sig, sigHash: sigHash };
+      rowInfo[r] = { baseKey: baseKey, sig: sig, sigHash: sigHash, identified: identified };
       (buckets[baseKey] || (buckets[baseKey] = {}))[sig] = true;
       people[sigHash] = true;
     }
@@ -449,6 +511,7 @@
     // the FULL identity signature, so two different people in a collided bucket get
     // different fake records as well as different keys.
     var uniqueKeys = {};
+    var unidentifiedKeys = {};
     var anonRows = new Array(rows.length);
     var originalRows = new Array(rows.length);
 
@@ -456,7 +519,8 @@
       var info = rowInfo[r];
       var suffix = suffixMap[info.baseKey] ? suffixMap[info.baseKey][info.sig] : '';
       var anonK = info.baseKey + suffix;
-      uniqueKeys[anonK] = true;
+      if (info.identified) uniqueKeys[anonK] = true;
+      else unidentifiedKeys[anonK] = true;
 
       var fake = fakeCache[info.sigHash];
 
@@ -490,6 +554,11 @@
         collisionCount: collidedBuckets,
         collidedPeople: collidedPeople,
         collisionsResolved: collidedBuckets > 0,
+        // Rows that carried no name and no date of birth, and how many distinct
+        // records they became. Kept out of uniquePersons, which counts people
+        // the file could actually identify.
+        unidentifiedRows: unidentifiedRows,
+        unidentifiedKeys: Object.keys(unidentifiedKeys).length,
         assignedTerms: assignedTerms
       }
     };

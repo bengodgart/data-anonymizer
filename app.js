@@ -390,21 +390,26 @@
     el.stats.innerHTML = '';
     addStat(stats.rowCount, 'Rows');
     addStat(stats.uniquePersons, 'Unique people');
+    if (stats.unidentifiedRows > 0) addStat(stats.unidentifiedRows, 'Rows with no identity', true);
     addStat(stats.assignedTerms.length, 'Fields anonymized');
     addStat(stats.collisionCount, 'Collisions resolved', stats.collisionCount > 0);
 
-    // Explain collision resolution when it happened.
-    var existingNote = document.getElementById('collisionNote');
-    if (existingNote) existingNote.remove();
+    // Explain anything the run had to resolve, in the order it would worry you.
+    ['collisionNote', 'unidentifiedNote'].forEach(function (id) {
+      var existing = document.getElementById(id);
+      if (existing) existing.remove();
+    });
     if (stats.collisionCount > 0) {
-      var note = document.createElement('p');
-      note.id = 'collisionNote';
-      note.className = 'note';
-      note.textContent = stats.collidedPeople + ' people fell into ' + stats.collisionCount +
+      addNote('collisionNote', stats.collidedPeople + ' people fell into ' + stats.collisionCount +
         ' shared key bucket(s) (same first 3 letters, last 3 letters, and date of birth). ' +
         'They were kept distinct by their full name and given ordinal suffixes (for example -01, -02) ' +
-        'plus separate fake records, so no two people were merged.';
-      el.stats.parentNode.insertBefore(note, el.stats.nextSibling);
+        'plus separate fake records, so no two people were merged.');
+    }
+    if (stats.unidentifiedRows > 0) {
+      addNote('unidentifiedNote', stats.unidentifiedRows + ' rows had no name and no date of birth, so there was ' +
+        'nothing in them to identify a person with. Rather than merging them into one person, each different ' +
+        'row was given its own key starting with "unknown-" and its own fake record, which came to ' +
+        stats.unidentifiedKeys + ' of them. They are not counted as people above.');
     }
 
     // Preview table (original vs anonymized).
@@ -418,6 +423,14 @@
     addDownload(origName, 'Your original data with the matching anon_key column added.', msg.originalCsv, vr.pass);
 
     show('download');
+  }
+
+  function addNote(id, text) {
+    var note = document.createElement('p');
+    note.id = id;
+    note.className = 'note';
+    note.textContent = text;
+    el.stats.parentNode.insertBefore(note, el.stats.nextSibling);
   }
 
   function addStat(num, lbl, warn) {

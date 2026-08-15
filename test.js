@@ -27,6 +27,16 @@ eq(anon.sha256Hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410f
 eq(anon.sha256Hex('The quick brown fox jumps over the lazy dog'),
   'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592', 'sha256 fox');
 eq(anon.sha256Hex('a').length, 64, 'sha256 returns 64 hex chars');
+// Any script, not just Latin-1. Cross-checked against Node's own crypto, which
+// is an implementation this repo did not write.
+var nodeCrypto = require('crypto');
+function nodeSha256(s) { return nodeCrypto.createHash('sha256').update(s, 'utf8').digest('hex'); }
+['', 'abc', 'John Smith', 'Jose Muller', 'josé|müller|19800101', '王小明', 'Ольга', 'محمد',
+  'Zoe 😀', 'smith, john'].forEach(function (s) {
+  eq(anon.sha256Hex(s), nodeSha256(s), 'sha256 matches node crypto for ' + JSON.stringify(s));
+});
+ok(anon.sha256Hex('王小明') !== anon.sha256Hex('李小红'), 'two different non-Latin names hash differently');
+ok(anon.sha256Hex('王小明').length === 64, 'a non-Latin name still produces a full hash');
 
 // ---------------------------------------------------------------------------
 // CSV parse / serialize.
@@ -228,6 +238,56 @@ var tampered = { headers: result.original.headers, rows: result.original.rows.ma
 tampered.rows[0][0] = 'CORRUPTED';
 var badVr = verify.roundTripVerify(rows, tampered, result.anon);
 ok(!badVr.pass, 'verify fails when original file is tampered');
+
+// ---------------------------------------------------------------------------
+// Rows with no identity at all. Hashing that emptiness used to give every such
+// row one key and one fake person, which merged strangers.
+// ---------------------------------------------------------------------------
+var blankHeaders = ['First', 'Last', 'DOB', 'Email', 'Amount'];
+var blankRows = [
+  ['John', 'Smith', '1/1/1980', 'j@example.org', '10'],
+  ['', '', '', 'a@example.org', '20'],
+  ['', '', '', 'b@example.org', '30'],
+  ['', '', '', 'b@example.org', '30'],   // identical to the row above
+  ['', '', '', '', '']                    // nothing at all
+];
+var blankMapping = { first_name: 0, last_name: 1, date_of_birth: 2, email: 3 };
+var blankRes = anon.anonymizeDataset({ headers: blankHeaders, rows: blankRows }, blankMapping, {});
+var bk = blankRes.anon.headers.length - 1;
+ok(blankRes.anon.rows[1][bk] !== blankRes.anon.rows[2][bk], 'two different rows with no identity do not share a key');
+eq(blankRes.anon.rows[2][bk], blankRes.anon.rows[3][bk], 'two identical rows with no identity do share a key');
+ok(blankRes.anon.rows[1][bk].indexOf('unknown-') === 0, 'a row with no identity gets a key that says so');
+ok(blankRes.anon.rows[0][bk].indexOf('unknown-') === -1, 'an identified row keeps a normal key');
+ok(blankRes.anon.rows[1][3] !== blankRes.anon.rows[2][3], 'rows with no identity get different fake data');
+eq(blankRes.stats.unidentifiedRows, 4, 'unidentified rows are counted');
+eq(blankRes.stats.unidentifiedKeys, 3, 'the four unidentified rows became three records');
+eq(blankRes.stats.uniquePersons, 1, 'unidentified rows are not counted as people');
+eq(blankRes.anon.rows[4][3], '', 'a blank email in an unidentified row stays blank');
+ok(verify.roundTripVerify(blankRows, blankRes.original, blankRes.anon).pass, 'round trip passes with unidentified rows');
+// Row order must not change the keys, so a sorted copy of the same file matches.
+var blankRev = anon.anonymizeDataset(
+  { headers: blankHeaders, rows: blankRows.slice().reverse() }, blankMapping, {}
+);
+eq(blankRev.anon.rows[blankRev.anon.rows.length - 2][bk], blankRes.anon.rows[1][bk],
+  'a row with no identity keeps its key when the file is reordered');
+// A partial identity is still an identity: one of the three is enough.
+var partial = anon.anonymizeDataset({
+  headers: blankHeaders,
+  rows: [['', 'Smith', '', 'x@example.org', '1'], ['', '', '1/1/1980', 'y@example.org', '2']]
+}, blankMapping, {});
+eq(partial.stats.unidentifiedRows, 0, 'a last name alone, or a date of birth alone, still identifies a row');
+eq(partial.stats.uniquePersons, 2, 'partially identified rows are counted as people');
+
+// Two different people whose names are outside the Latin alphabet stay two
+// people, with different keys and different fake records.
+var cjk = anon.anonymizeDataset({
+  headers: ['F', 'L', 'D'],
+  rows: [['王', '小明', '1/1/1980'], ['李', '小红', '1/1/1980']]
+}, { first_name: 0, last_name: 1, date_of_birth: 2 }, {});
+var ck = cjk.anon.headers.length - 1;
+ok(cjk.anon.rows[0][ck] !== cjk.anon.rows[1][ck], 'two non-Latin names get different anon_keys');
+ok(cjk.anon.rows[0][0] !== cjk.anon.rows[1][0], 'two non-Latin names get different fake data');
+eq(cjk.stats.uniquePersons, 2, 'two non-Latin names count as two people');
 
 // ---------------------------------------------------------------------------
 // Required terms: first name, last name and date of birth, and nothing else.

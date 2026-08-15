@@ -1,5 +1,14 @@
 # Knowledge Bundle Log
 
+## 2026-08-14 (third pass)
+* **Rows with no identity no longer merge**: a row with no name and no date of birth
+  used to hash to the empty string, so every such row shared one key and one fake
+  person. Each distinct row now gets its own `unknown-` key and the count is
+  reported. Same defect class found alongside: the pure-JS SHA-256 returned an
+  empty string for any name outside Latin-1, merging every non-Latin name into one
+  fake identity; it now UTF-8 encodes first and is cross-checked against Node's
+  crypto. Assertion count 202 to 230.
+
 ## 2026-08-14 (second pass)
 * **Terms corrected and extended**: `special_number` renamed to `ssn`; `email` and
   `card_number` added, making the tool's public card copy true for the first time.
