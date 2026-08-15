@@ -1,5 +1,12 @@
 # Knowledge Bundle Log
 
+## 2026-08-15
+* **Record ID term added**: an optional column that takes over the identity when the
+  file has one, so one customer number is one person through a typo or a missing
+  birth date, and two people sharing a name and birth date stay separate. The real
+  ID is replaced in the anonymized output. Required terms unchanged. Assertion
+  count 230 to 250.
+
 ## 2026-08-14 (third pass)
 * **Rows with no identity no longer merge**: a row with no name and no date of birth
   used to hash to the empty string, so every such row shared one key and one fake

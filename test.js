@@ -240,6 +240,52 @@ var badVr = verify.roundTripVerify(rows, tampered, result.anon);
 ok(!badVr.pass, 'verify fails when original file is tampered');
 
 // ---------------------------------------------------------------------------
+// Record ID: the file's own answer to who a row is, and it outranks the name.
+// ---------------------------------------------------------------------------
+var ridHeaders = ['CustomerID', 'First', 'Last', 'DOB', 'Email'];
+var ridRows = [
+  ['C-100', 'John', 'Smith', '1/1/1980', 'j@example.org'],
+  ['C-100', 'Jon', 'Smith', '', 'j@example.org'],        // same customer, typo, no DOB
+  ['C-200', 'John', 'Smith', '1/1/1980', 'other@example.org'], // same name and DOB, different customer
+  ['', 'Mary', 'Jones', '2/2/1990', 'm@example.org'],    // no ID, falls back to the name
+  ['', '', '', '', 'x@example.org']                       // nothing at all
+];
+var ridMapping = { record_id: 0, first_name: 1, last_name: 2, date_of_birth: 3, email: 4 };
+var ridRes = anon.anonymizeDataset({ headers: ridHeaders, rows: ridRows }, ridMapping, {});
+var rk = ridRes.anon.headers.length - 1;
+eq(ridRes.anon.rows[0][rk], ridRes.anon.rows[1][rk], 'one customer number is one person, through a typo and a missing birth date');
+eq(ridRes.anon.rows[0][1], ridRes.anon.rows[1][1], 'and they get the same fake identity');
+ok(ridRes.anon.rows[0][rk] !== ridRes.anon.rows[2][rk], 'the same name and birth date under two customer numbers is two people');
+ok(ridRes.anon.rows[3][rk].indexOf('unknown-') === -1, 'a row with no Record ID still keys on its name');
+ok(ridRes.anon.rows[4][rk].indexOf('unknown-') === 0, 'a row with neither is still unidentified');
+eq(ridRes.stats.uniquePersons, 3, 'three identifiable people');
+eq(ridRes.stats.unidentifiedRows, 1, 'one row with nothing to key on');
+// The real ID must not survive into the anonymized file, or the source system joins straight back.
+ok(ridRes.anon.rows[0][0].indexOf('C-100') === -1, 'the real Record ID is gone from the anonymized file');
+eq(ridRes.anon.rows[0][0], ridRes.anon.rows[1][0], 'its replacement is stable for one person');
+ok(ridRes.anon.rows[0][0] !== ridRes.anon.rows[2][0], 'and different for a different person');
+eq(ridRes.original.rows[0][0], 'C-100', 'the original file keeps the real Record ID');
+eq(ridRes.anon.rows[3][0], '', 'a blank Record ID cell stays blank');
+ok(verify.roundTripVerify(ridRows, ridRes.original, ridRes.anon).pass, 'round trip passes with a Record ID mapped');
+// Case and stray spacing do not split a customer; leading zeros are NOT stripped.
+eq(anon.normalizeRecordId('  AB 123 '), 'ab 123', 'record IDs normalize case and spacing');
+ok(anon.normalizeRecordId('0123') !== anon.normalizeRecordId('123'), 'a leading zero is left alone, because 0123 and 123 can be two customers');
+// A numeric ID column gets a numeric replacement, the way a numeric phone does.
+var ridNum = anon.anonymizeDataset(
+  { headers: ['id', 'F', 'L', 'D'], rows: [['4417', 'A', 'B', '1/1/1980']] },
+  { record_id: 0, first_name: 1, last_name: 2, date_of_birth: 3 },
+  parse.detectColumnTypes(['id', 'F', 'L', 'D'], [['4417', 'A', 'B', '1/1/1980']], 10)
+);
+ok(/^\d+$/.test(ridNum.anon.rows[0][0]), 'a numeric Record ID column stays numeric (' + ridNum.anon.rows[0][0] + ')');
+// Suggested only for person-scoped ID names.
+var ridSug = ['customer_id', 'First', 'Last', 'DOB'];
+eq(named(suggest.suggestMapping(ridSug, [['12345', 'A', 'B', '1/1/1980']]), ridSug).record_id, 'customer_id', 'a customer id column is suggested');
+var ordSug = ['order_id', 'First', 'Last', 'DOB'];
+eq(named(suggest.suggestMapping(ordSug, [['12345', 'A', 'B', '1/1/1980']]), ordSug).record_id, undefined, 'an order id column is not, because an order is not a person');
+var bareId = ['id', 'First', 'Last', 'DOB'];
+eq(named(suggest.suggestMapping(bareId, [['12345', 'A', 'B', '1/1/1980']]), bareId).record_id, undefined, 'a column called just "id" is left for the user to decide');
+
+// ---------------------------------------------------------------------------
 // Rows with no identity at all. Hashing that emptiness used to give every such
 // row one key and one fake person, which merged strangers.
 // ---------------------------------------------------------------------------

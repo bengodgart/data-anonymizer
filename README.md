@@ -11,8 +11,8 @@ Live: https://bengodgart.github.io/data-anonymizer/
 1. You upload a `.csv`, `.xlsx`, or `.xls` file. Excel workbooks with more than
    one sheet let you pick which sheet to use.
 2. You map the personal-data columns to common terms (first name, last name,
-   date of birth, Social Security number, email, card number, phone, address, and
-   so on). Only first name, last name, and date of birth are required, because
+   date of birth, Record ID, Social Security number, email, card number, phone,
+   address, and so on). Only first name, last name, and date of birth are required, because
    those three build the key; every other term is optional. A full-name column
    can satisfy first and last together.
    The tool reads your column names and values first and offers a match for each
@@ -28,7 +28,7 @@ Live: https://bengodgart.github.io/data-anonymizer/
 
 ## Column suggestions
 
-Mapping seventeen terms by hand is the slowest part of the tool, so it recommends
+Mapping eighteen terms by hand is the slowest part of the tool, so it recommends
 the ones it can recognize. Every recommendation is an offer, never an action:
 
 - Each row gets its own button (`Use "dob"`) that sets that one dropdown.
@@ -69,6 +69,27 @@ It is built from the first three letters of the first name, the first three
 letters of the last name, and the normalized date of birth, then hashed with
 SHA-256 (first 16 hex characters kept). The hash means you cannot read the real
 name or birth date out of the key at a glance.
+
+### Record ID beats the name
+
+If your file has a customer number, member number, or any other column that
+already says who a row belongs to, map it to **Record ID** and the key is built
+from that instead. It is the file's own answer to the question, so it survives a
+misspelled name, a missing birth date, and two genuinely different people who
+happen to share both. Rows with no Record ID fall back to the name recipe in the
+same run, so a partly filled ID column still helps.
+
+Two things worth knowing before you map it:
+
+- **The Record ID column is replaced in the anonymized file**, with a stand-in
+  that is stable per person (`id-` and ten hex characters, or a number if the
+  source column was numeric). Leaving the real one in would let anyone with your
+  source system join straight back to real people, which is the whole thing this
+  tool exists to prevent.
+- **Map it only if it identifies a person.** If your IDs are per account, per
+  policy, or per order, and one person can hold two of them, leave it unassigned
+  and let the name and birth date do the work. The suggestion engine will not
+  offer an `order id` or an `invoice number` for exactly this reason.
 
 ### Collision resolution
 
@@ -161,7 +182,7 @@ node test.js
 ```
 
 ```
-Assertions passed: 230
+Assertions passed: 250
 Assertions failed: 0
 ALL PASS
 ```

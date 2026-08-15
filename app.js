@@ -395,7 +395,7 @@
     addStat(stats.collisionCount, 'Collisions resolved', stats.collisionCount > 0);
 
     // Explain anything the run had to resolve, in the order it would worry you.
-    ['collisionNote', 'unidentifiedNote'].forEach(function (id) {
+    ['collisionNote', 'recordIdNote', 'unidentifiedNote'].forEach(function (id) {
       var existing = document.getElementById(id);
       if (existing) existing.remove();
     });
@@ -404,6 +404,12 @@
         ' shared key bucket(s) (same first 3 letters, last 3 letters, and date of birth). ' +
         'They were kept distinct by their full name and given ordinal suffixes (for example -01, -02) ' +
         'plus separate fake records, so no two people were merged.');
+    }
+    if (stats.assignedTerms.indexOf('record_id') !== -1) {
+      addNote('recordIdNote', 'Each anon_key came from your Record ID column rather than from the name and ' +
+        'date of birth, because that is what your own file says a row is. Rows with no Record ID fell back ' +
+        'to the name and date of birth. The Record ID column itself was replaced in the anonymized file, ' +
+        'since anyone holding your source system could have joined on the real one.');
     }
     if (stats.unidentifiedRows > 0) {
       addNote('unidentifiedNote', stats.unidentifiedRows + ' rows had no name and no date of birth, so there was ' +

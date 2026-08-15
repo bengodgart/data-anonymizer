@@ -51,6 +51,13 @@
       'last nm', 'legal last name', 'name last'],
     date_of_birth: ['date of birth', 'dob', 'd o b', 'birth date', 'birthdate', 'birthday',
       'date born', 'born on', 'bdate', 'birth dt', 'date of birth dob'],
+    // Person-scoped ID names only. A record ID takes over the keying for the
+    // whole file, so this list stays narrow on purpose: bare "id" is not in it,
+    // because an "id" column is an order or a product just as often.
+    record_id: ['customer id', 'customer number', 'customer no', 'client id', 'client number',
+      'member id', 'member number', 'patient id', 'patient number', 'student id',
+      'person id', 'record id', 'account id', 'account number', 'cust id',
+      'subscriber id', 'policy number', 'employee id', 'medical record number', 'mrn'],
     ssn: ['ssn', 'social security number', 'social security', 'social security no',
       'ss number', 'ssno', 'sin', 'national id', 'national insurance number', 'tax id',
       'tin', 'itin', 'ein'],
@@ -95,6 +102,11 @@
     card_number: ['type', 'brand', 'holder', 'name', 'expiry', 'expiration', 'exp',
       'cvv', 'cvc', 'issuer', 'network', 'status', 'level', 'tier', 'last4', 'last 4'],
     state: ['statement', 'status', 'estate', 'statistic', 'stateless'],
+    // Anything counted per transaction rather than per person.
+    record_id: ['order', 'invoice', 'transaction', 'product', 'item', 'sku', 'session',
+      'ticket', 'device', 'store', 'branch', 'location', 'plan', 'batch', 'file',
+      'job', 'run', 'event', 'message', 'payment', 'shipment', 'claim', 'case',
+      'policy type', 'group'],
     city: ['capacity', 'electricity'],
     full_name: ['user', 'username', 'file', 'filename', 'company', 'business', 'account',
       'product', 'plan', 'school', 'district', 'employer', 'organization', 'organisation',

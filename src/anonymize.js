@@ -1,8 +1,10 @@
 /*
  * anonymize.js - the anonymization core.
- * - Derives a person's identity (first / last / date of birth) from the
- *   column mapping, including the two "full name" splitting rules.
- * - Builds a non-reversible anon_key = SHA-256 of first3(first)+first3(last)+dob.
+ * - Derives a person's identity from the column mapping: a record ID when the
+ *   file has one, otherwise first / last / date of birth, including the two
+ *   "full name" splitting rules.
+ * - Builds a non-reversible anon_key = SHA-256 of first3(first)+first3(last)+dob,
+ *   or of the record ID when one is mapped.
  * - Generates fake data that is stable per person (same person -> same fakes)
  *   and internally consistent (address fields all agree on one ZIP record).
  *
@@ -27,7 +29,7 @@
   // optional and is simply left alone when it is not assigned.
   var TERMS = [
     'first_name', 'last_name', 'full_name_last_first', 'full_name_first_last',
-    'date_of_birth', 'ssn', 'card_number', 'email', 'phone_1', 'phone_2',
+    'date_of_birth', 'record_id', 'ssn', 'card_number', 'email', 'phone_1', 'phone_2',
     'address_line_1', 'address_line_2', 'city', 'state', 'zip_code',
     'county', 'country'
   ];
@@ -38,6 +40,7 @@
     full_name_last_first: 'Full name (last, first)',
     full_name_first_last: 'Full name (first last)',
     date_of_birth: 'Date of birth',
+    record_id: 'Record ID',
     ssn: 'Social Security number',
     card_number: 'Card number',
     email: 'Email address',
@@ -251,6 +254,13 @@
     return s.length < 2 ? '0' + s : s;
   }
 
+  // A record ID is compared as written, minus case and stray spacing. Leading
+  // zeros are NOT stripped, because customer 0123 and customer 123 can be two
+  // different people and no dataset is worth guessing on.
+  function normalizeRecordId(value) {
+    return String(value == null ? '' : value).trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
   function first3(value) {
     var s = (value == null ? '' : String(value)).toLowerCase().replace(/[^a-z0-9]/g, '');
     return s.slice(0, 3);
@@ -272,11 +282,23 @@
     if (mapping.first_name != null) firstName = String(row[mapping.first_name] == null ? '' : row[mapping.first_name]).trim();
     if (mapping.last_name != null) lastName = String(row[mapping.last_name] == null ? '' : row[mapping.last_name]).trim();
     var dobRaw = mapping.date_of_birth != null ? row[mapping.date_of_birth] : '';
-    return { firstName: firstName, lastName: lastName, dobRaw: dobRaw, dobNorm: normalizeDob(dobRaw) };
+    var recordIdRaw = mapping.record_id != null ? row[mapping.record_id] : '';
+    return {
+      firstName: firstName, lastName: lastName,
+      dobRaw: dobRaw, dobNorm: normalizeDob(dobRaw),
+      recordIdRaw: recordIdRaw, recordIdNorm: normalizeRecordId(recordIdRaw)
+    };
   }
 
   // The raw (human-readable) key BEFORE hashing.
+  //
+  // A record ID beats the name and date of birth whenever the row has one. It
+  // is the file's own answer to "who is this", so it survives a misspelled
+  // name, a missing birth date, and two genuinely different people who happen
+  // to share both. Rows without one fall back to the name recipe, and rows with
+  // neither have no identity at all (handled in anonymizeDataset).
   function anonKeyRaw(identity) {
+    if (identity.recordIdNorm) return 'id:' + identity.recordIdNorm;
     return first3(identity.firstName) + first3(identity.lastName) + identity.dobNorm;
   }
 
@@ -319,6 +341,15 @@
         case 'date_of_birth': out[t] = fakeDob; break;
         // Two masks rather than fakes. A made-up SSN or card number is a real
         // one for somebody, and neither is worth inventing.
+        // The real ID has to go: anyone holding the source system could join
+        // on it and undo the whole exercise. The replacement is stable per
+        // person, so rows still line up, and it matches the column's type so a
+        // numeric ID column stays numeric.
+        case 'record_id':
+          out[t] = (phoneTypes && phoneTypes.record_id === 'number')
+            ? String(100000000 + (parseInt(keyHash.slice(0, 12), 16) % 900000000))
+            : 'id-' + keyHash.slice(0, 10);
+          break;
         case 'ssn': out[t] = '***-**-****'; break;
         case 'card_number': out[t] = '****-****-****-****'; break;
         // example.com is reserved by the IANA for exactly this, so a fake
@@ -407,6 +438,7 @@
   }
 
   function identitySignature(identity) {
+    if (identity.recordIdNorm) return 'id|' + identity.recordIdNorm;
     return String(identity.firstName).trim().toLowerCase() + '|' +
       String(identity.lastName).trim().toLowerCase() + '|' + identity.dobNorm;
   }
@@ -422,7 +454,7 @@
       var term = TERMS[t];
       if (mapping[term] != null) {
         assignedTerms.push(term);
-        if (term === 'phone_1' || term === 'phone_2') {
+        if (term === 'phone_1' || term === 'phone_2' || term === 'record_id') {
           phoneTypes[term] = (columnTypes && columnTypes[mapping[term]]) || 'string';
         }
       }
@@ -573,6 +605,7 @@
     splitCommaFirst: splitCommaFirst,
     splitFirstLast: splitFirstLast,
     normalizeDob: normalizeDob,
+    normalizeRecordId: normalizeRecordId,
     first3: first3,
     deriveIdentity: deriveIdentity,
     anonKeyRaw: anonKeyRaw,
