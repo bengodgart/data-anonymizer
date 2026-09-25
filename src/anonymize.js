@@ -24,8 +24,8 @@
   var ZIPS = (DAZip && DAZip.ZIPS) || [];
 
   // The common terms a user can map columns to. Order is display order.
-  // Only first name, last name and date of birth are ever required, because
-  // those three are what the anon_key is built from. Every other term is
+  // The key needs one of two things: a Record ID, or a name plus a date of
+  // birth (first name, last name and date of birth). Every other term is
   // optional and is simply left alone when it is not assigned.
   var TERMS = [
     'first_name', 'last_name', 'full_name_last_first', 'full_name_first_last',
@@ -375,17 +375,27 @@
 
   // ---------------------------------------------------------------------------
   // Mapping validation. Returns an array of error strings (empty = valid).
-  // Rules: first name, last name, and date of birth must each be satisfied.
-  // A full-name mapping satisfies BOTH first and last name.
+  // Rule: the key needs a Record ID, or a name plus a date of birth. A mapped
+  // Record ID is enough on its own. Without one, first name, last name and date
+  // of birth must each be satisfied, and a full-name mapping satisfies BOTH
+  // first and last name. Rows that turn out to have no ID fall back to the name
+  // per row, and rows with neither get their own "unknown-" key.
   // ---------------------------------------------------------------------------
   function validateMapping(mapping) {
     var errors = [];
     var hasFull = mapping.full_name_last_first != null || mapping.full_name_first_last != null;
     var hasFirst = mapping.first_name != null || hasFull;
     var hasLast = mapping.last_name != null || hasFull;
-    if (!hasFirst) errors.push('First name must be assigned (directly or via a full-name column).');
-    if (!hasLast) errors.push('Last name must be assigned (directly or via a full-name column).');
-    if (mapping.date_of_birth == null) errors.push('Date of birth must be assigned.');
+    if (mapping.record_id == null) {
+      var missing = [];
+      if (!hasFirst) missing.push('first name');
+      if (!hasLast) missing.push('last name');
+      if (mapping.date_of_birth == null) missing.push('date of birth');
+      if (missing.length) {
+        errors.push('Assign a Record ID, or a name plus a date of birth. Without a Record ID, this is still missing: ' +
+          missing.join(', ') + '.' + (!hasFirst || !hasLast ? ' A full-name column counts as both first and last name.' : ''));
+      }
+    }
     if (mapping.full_name_last_first != null && mapping.full_name_first_last != null) {
       errors.push('Assign only one full-name format, not both.');
     }

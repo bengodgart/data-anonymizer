@@ -8,7 +8,12 @@
 
   var TERMS = DAAnon.TERMS;
   var TERM_LABELS = DAAnon.TERM_LABELS;
-  var REQUIRED_HINT = { first_name: true, last_name: true, date_of_birth: true };
+  // The key needs a Record ID, or a name plus a date of birth, so these four
+  // rows carry a badge saying which way round each one is needed.
+  var REQUIRED_HINT = {
+    first_name: 'or Record ID', last_name: 'or Record ID', date_of_birth: 'or Record ID',
+    record_id: 'or name + birth date'
+  };
 
   var state = {
     fileBaseName: 'data',
@@ -181,7 +186,7 @@
       if (REQUIRED_HINT[term]) {
         var badge = document.createElement('span');
         badge.className = 'req-badge';
-        badge.textContent = 'required';
+        badge.textContent = REQUIRED_HINT[term];
         label.appendChild(badge);
       }
 
@@ -412,7 +417,9 @@
         'since anyone holding your source system could have joined on the real one.');
     }
     if (stats.unidentifiedRows > 0) {
-      addNote('unidentifiedNote', stats.unidentifiedRows + ' rows had no name and no date of birth, so there was ' +
+      addNote('unidentifiedNote', stats.unidentifiedRows + ' rows had ' +
+        (stats.assignedTerms.indexOf('record_id') !== -1 ? 'no Record ID, ' : '') +
+        'no name and no date of birth, so there was ' +
         'nothing in them to identify a person with. Rather than merging them into one person, each different ' +
         'row was given its own key starting with "unknown-" and its own fake record, which came to ' +
         stats.unidentifiedKeys + ' of them. They are not counted as people above.');

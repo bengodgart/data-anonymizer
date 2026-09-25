@@ -118,7 +118,44 @@ ok(anon.anonKey(idB) !== keyA, 'different person -> different key');
 // ---------------------------------------------------------------------------
 eq(anon.validateMapping({ first_name: 0, last_name: 1, date_of_birth: 2 }).length, 0, 'valid mapping no errors');
 ok(anon.validateMapping({ first_name: 0, last_name: 1 }).length === 1, 'missing dob flagged');
-ok(anon.validateMapping({ date_of_birth: 2 }).length === 2, 'missing first+last flagged');
+ok(anon.validateMapping({ date_of_birth: 2 }).length === 1, 'missing first+last flagged');
+
+// The rule: a Record ID, or a name plus a date of birth.
+eq(anon.validateMapping({ record_id: 0 }).length, 0, 'a Record ID alone, with no DOB column, is accepted');
+eq(anon.validateMapping({ record_id: 0, first_name: 1, last_name: 2 }).length, 0,
+  'a Record ID plus a name, with no DOB column, is accepted');
+eq(anon.validateMapping({ record_id: 0, email: 1 }).length, 0, 'a Record ID plus optional terms is accepted');
+var noKeyErrs = anon.validateMapping({ first_name: 0, last_name: 1, email: 2 });
+eq(noKeyErrs.length, 1, 'no Record ID and no DOB is refused with one message');
+ok(/Record ID/.test(noKeyErrs[0]) && /date of birth/.test(noKeyErrs[0]),
+  'the refusal names both ways to fix it: ' + noKeyErrs[0]);
+ok(/still missing: date of birth\./.test(noKeyErrs[0]), 'the refusal says exactly what is missing');
+var emptyErrs = anon.validateMapping({ email: 0 });
+eq(emptyErrs.length, 1, 'neither a Record ID nor a name and DOB is refused');
+ok(/first name, last name, date of birth/.test(emptyErrs[0]) && /full-name column/.test(emptyErrs[0]),
+  'the refusal lists all three missing pieces and the full-name shortcut');
+eq(anon.validateMapping({}).length, 1, 'an empty mapping is refused');
+ok(anon.validateMapping({ record_id: 0, first_name: 1, last_name: 1 }).length === 1,
+  'a Record ID does not excuse a double-mapped column');
+
+// A file with a customer number and no birth date column runs end to end,
+// keyed by the Record ID, and survives the round trip.
+var noDob = {
+  headers: ['customer_number', 'first_name', 'last_name', 'email'],
+  rows: [['C1', 'Ann', 'Lee', 'ann@x.org'], ['C2', 'Bob', 'Ray', 'bob@x.org'],
+    ['C1', 'Anne', 'Lee', 'ann@x.org'], ['', 'Cal', 'Fox', 'cal@x.org']]
+};
+var noDobMap = { record_id: 0, first_name: 1, last_name: 2, email: 3 };
+eq(anon.validateMapping(noDobMap).length, 0, 'no-DOB file: mapping validates');
+var noDobOut = anon.anonymizeDataset(noDob, noDobMap, {});
+var ndk = noDobOut.anon.headers.length - 1;
+eq(noDobOut.anon.rows[0][ndk], noDobOut.anon.rows[2][ndk], 'no-DOB file: one Record ID is one person through a misspelled name');
+ok(noDobOut.anon.rows[0][ndk] !== noDobOut.anon.rows[1][ndk], 'no-DOB file: two Record IDs are two people');
+eq(noDobOut.anon.rows[0][ndk], anon.anonKey(anon.deriveIdentity(['C1'], { record_id: 0 })),
+  'no-DOB file: the key is built from the Record ID alone');
+ok(noDobOut.anon.rows[3][ndk].indexOf('unknown-') !== 0, 'no-DOB file: a row with no ID still keys on the name it has');
+eq(noDobOut.stats.uniquePersons, 3, 'no-DOB file: three people');
+ok(verify.roundTripVerify(noDob.rows, noDobOut.original, noDobOut.anon).pass, 'no-DOB file: round trip passes');
 eq(anon.validateMapping({ full_name_first_last: 0, date_of_birth: 1 }).length, 0, 'full name satisfies first+last');
 ok(anon.validateMapping({ full_name_first_last: 0, full_name_last_first: 1, date_of_birth: 2 }).length >= 1, 'both full names flagged');
 ok(anon.validateMapping({ first_name: 0, last_name: 0, date_of_birth: 1 }).length >= 1, 'double-mapped column flagged');
@@ -336,7 +373,7 @@ ok(cjk.anon.rows[0][0] !== cjk.anon.rows[1][0], 'two non-Latin names get differe
 eq(cjk.stats.uniquePersons, 2, 'two non-Latin names count as two people');
 
 // ---------------------------------------------------------------------------
-// Required terms: first name, last name and date of birth, and nothing else.
+// The name route: first name, last name and date of birth, and nothing else.
 // Every other term must be optional, one at a time and all together.
 // ---------------------------------------------------------------------------
 var REQUIRED = { first_name: true, last_name: true, date_of_birth: true };
@@ -447,7 +484,8 @@ eq(sampleNamed.state, 'state', 'sample: state suggested');
 eq(sampleNamed.zip_code, 'zip', 'sample: zip suggested');
 eq(sampleNamed.county, 'county', 'sample: county suggested');
 eq(sampleNamed.country, 'country', 'sample: country suggested');
-eq(suggest.countSuggestions(sampleSug), 13, 'sample: exactly the 13 personal columns suggested');
+eq(sampleNamed.record_id, 'customer_number', 'sample: customer number suggested as Record ID');
+eq(suggest.countSuggestions(sampleSug), 14, 'sample: exactly the 14 personal columns suggested');
 // Accepting every suggestion must produce a mapping the tool accepts as valid,
 // or the one-click demo dead-ends on an error.
 eq(anon.validateMapping(flatten(sampleSug)).length, 0, 'sample: accepting all suggestions validates');

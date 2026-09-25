@@ -20,8 +20,8 @@ var csvText = fs.readFileSync(csvPath, 'utf8');
 var dataset = parse.parseCsv(csvText);
 var colTypes = parse.detectColumnTypes(dataset.headers, dataset.rows, 1000);
 
-// Same mapping a real user would build in the UI dropdowns, using the
-// columns this sample actually provides.
+// First run: the name route (first name, last name, date of birth), with the
+// customer_number column left unassigned, so the collision example still runs.
 var mapping = {
   first_name: dataset.headers.indexOf('first_name'),
   last_name: dataset.headers.indexOf('last_name'),
@@ -116,6 +116,37 @@ var changedOk = true;
   }
 });
 check(changedOk, 'mapped personal columns are replaced with fake data in the anonymized file');
+
+// Second run: the mapping "Accept all suggestions" builds, which also maps
+// customer_number to Record ID. Keys now come from the customer number.
+var ridMapping = JSON.parse(JSON.stringify(mapping));
+ridMapping.record_id = dataset.headers.indexOf('customer_number');
+check(ridMapping.record_id !== -1, 'sample has a customer_number column');
+check(anon.validateMapping(ridMapping).length === 0, 'Record ID mapping validates');
+var ridOut = anon.anonymizeDataset(dataset, ridMapping, colTypes);
+check(verify.roundTripVerify(dataset.rows, ridOut.original, ridOut.anon).pass, 'Record ID run: round-trip verify passes');
+var ridKeys = {};
+dataset.rows.forEach(function (row, r) {
+  var id = row[ridMapping.record_id];
+  var k = ridOut.anon.rows[r][ridOut.anon.headers.length - 1];
+  (ridKeys[id] || (ridKeys[id] = {}))[k] = true;
+});
+check(Object.keys(ridKeys).every(function (id) { return Object.keys(ridKeys[id]).length === 1; }),
+  'Record ID run: every customer number maps to exactly one anon_key');
+check(ridOut.stats.uniquePersons === Object.keys(ridKeys).length,
+  'Record ID run: one person per customer number (' + ridOut.stats.uniquePersons + ')');
+var idIdx = ridMapping.record_id;
+check(dataset.rows.every(function (row, r) { return ridOut.anon.rows[r][idIdx] !== row[idIdx]; }),
+  'Record ID run: the real customer number is replaced in every row');
+
+// Third run: the same file with the birth date left unassigned. Keyed by the
+// customer number alone, it must still validate and round-trip.
+var noDobMapping = JSON.parse(JSON.stringify(ridMapping));
+delete noDobMapping.date_of_birth;
+check(anon.validateMapping(noDobMapping).length === 0, 'Record ID with no date of birth validates');
+var noDobOut = anon.anonymizeDataset(dataset, noDobMapping, colTypes);
+check(verify.roundTripVerify(dataset.rows, noDobOut.original, noDobOut.anon).pass, 'no date of birth run: round-trip verify passes');
+check(noDobOut.stats.uniquePersons === ridOut.stats.uniquePersons, 'no date of birth run: same people as with it');
 
 console.log('');
 console.log(failures === 0 ? 'ALL CHECKS PASSED' : (failures + ' CHECK(S) FAILED'));

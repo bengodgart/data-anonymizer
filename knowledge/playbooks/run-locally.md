@@ -29,5 +29,6 @@ The deployed copy is at https://bengodgart.github.io/data-anonymizer/.
   a `file://` URL. Serve the folder over HTTP as in step 3.
 * **Downloads stay locked if the round-trip test fails.** That is the safety gate, not a
   bug: the tool refuses to hand over files it cannot prove reverse cleanly.
-* First name, last name and date of birth are required in the mapping. A single full-name
+* The mapping needs a Record ID, or a name plus a date of birth (first name, last name and
+  date of birth). A Record ID alone is enough, with no birth date column. A single full-name
   column can satisfy first and last together.

@@ -63,9 +63,13 @@ function quoteField(value) {
 // ssn, so the legacy rows below keep their first fifteen fields exactly as they
 // were written.
 // ---------------------------------------------------------------------------
+//
+// customer_number is appended last for the same reason. It is assigned after
+// every row exists, one per distinct person in order of first appearance, and
+// uses no random draws, so adding it changed no other cell in the file.
 var HEADERS = ['first_name', 'last_name', 'dob', 'ssn', 'phone', 'address',
   'city', 'state', 'zip', 'balance', 'county', 'country', 'plan', 'monthly_amount',
-  'signup_date', 'email', 'card_number'];
+  'signup_date', 'email', 'card_number', 'customer_number'];
 
 // ---------------------------------------------------------------------------
 // Legacy 6 rows - DO NOT change these values or their order. They back the
@@ -282,6 +286,17 @@ for (var i = 0; i < NEW_ROW_COUNT; i++) {
 
 var ALL_ROWS = LEGACY_ROWS.concat(slots);
 
+// One customer number per distinct person (same name and date of birth as
+// written), in order of first appearance. A letter prefix keeps it from ever
+// reading as a ZIP code or a phone number to the suggestion engine.
+var customerNumbers = {};
+var nextCustomer = 10001;
+ALL_ROWS.forEach(function (row) {
+  var who = row[0] + '|' + row[1] + '|' + row[2];
+  if (!customerNumbers[who]) customerNumbers[who] = 'C' + (nextCustomer++);
+  row.push(customerNumbers[who]);
+});
+
 // ---------------------------------------------------------------------------
 // Safety assertion: no generated row (rows 6+) may fall into any protected
 // bucket, which would either merge into a legacy person or resize the
@@ -361,13 +376,14 @@ var checkMapping = {
   state: HEADERS.indexOf('state'),
   zip_code: HEADERS.indexOf('zip'),
   county: HEADERS.indexOf('county'),
-  country: HEADERS.indexOf('country')
+  country: HEADERS.indexOf('country'),
+  record_id: HEADERS.indexOf('customer_number')
 };
 var checkOut = anon.anonymizeDataset(
   checkDs, checkMapping, parse.detectColumnTypes(checkDs.headers, checkDs.rows, 1000)
 );
 var selfMapped = [];
-['first_name', 'last_name', 'dob', 'ssn', 'phone', 'address', 'email', 'card_number'].forEach(function (name) {
+['first_name', 'last_name', 'dob', 'ssn', 'phone', 'address', 'email', 'card_number', 'customer_number'].forEach(function (name) {
   var idx = HEADERS.indexOf(name);
   checkDs.rows.forEach(function (row, r) {
     var original = row[idx];

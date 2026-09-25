@@ -12,8 +12,9 @@ Live: https://bengodgart.github.io/data-anonymizer/
    one sheet let you pick which sheet to use.
 2. You map the personal-data columns to common terms (first name, last name,
    date of birth, Record ID, Social Security number, email, card number, phone,
-   address, and so on). Only first name, last name, and date of birth are required, because
-   those three build the key; every other term is optional. A full-name column
+   address, and so on). The key needs **a Record ID, or a name plus a date of
+   birth**; every other term is optional. A file with a customer number and no
+   birth date column works, keyed by the customer number. A full-name column
    can satisfy first and last together.
    The tool reads your column names and values first and offers a match for each
    one it recognizes, so this step is usually one click (see below).
@@ -77,7 +78,9 @@ already says who a row belongs to, map it to **Record ID** and the key is built
 from that instead. It is the file's own answer to the question, so it survives a
 misspelled name, a missing birth date, and two genuinely different people who
 happen to share both. Rows with no Record ID fall back to the name recipe in the
-same run, so a partly filled ID column still helps.
+same run, so a partly filled ID column still helps. With a Record ID mapped, a
+date of birth column is no longer required at all; rows that have no ID then key
+on whatever name they carry.
 
 Two things worth knowing before you map it:
 
@@ -118,7 +121,26 @@ indistinguishable, so they do stay together. The results screen reports how many
 there were. A partial identity is still an identity: a last name alone, or a
 date of birth alone, is enough to key on.
 
-Worked example on `samples/sample-people.csv`:
+### Worked example
+
+`samples/sample-people.csv` has a `customer_number` column, so accepting every
+suggestion maps it to Record ID and the keys come from it. The birth date column
+can be left unassigned and these keys do not change:
+
+```
+row0 (John Smith, C10001)          -> 7409b4ecca235b5d
+row1 (Jane Doe, C10002)            -> 20306effd0422fcf
+row2 (John Smith, C10001)          -> 7409b4ecca235b5d   (same customer, same key)
+row3 (Robert Johnson, C10003)      -> 344965fd471380b3
+row4 (Johnny Smithly, C10004)      -> 5fe1bad525f4d969
+row5 (Johnathan Smithson, C10005)  -> c6d8313f2664011b   (different customer, different key)
+```
+
+The customer number itself becomes a stand-in in the anonymized file (`C10001`
+becomes `id-38c0f27b36` on both of John Smith's rows).
+
+Leave `customer_number` unassigned and the same rows key on name and date of
+birth instead, which is where collision resolution shows up:
 
 ```
 row0 (John Smith 1/1/2000)          -> f475f70c84c13dfe
@@ -128,6 +150,9 @@ row3 (Robert Johnson 7/4/1985)      -> 241053af0533b35f
 row4 (Johnny Smithly 3/3/1970)      -> c5dcbe048f520260-02   (collision resolved)
 row5 (Johnathan Smithson 3/3/1970)  -> c5dcbe048f520260-01   (collision resolved)
 ```
+
+`node scripts/check-sample.js` runs the sample all three ways (name route, Record
+ID, and Record ID with no birth date) and checks each one round-trips.
 
 ## Fake data rules
 
@@ -182,7 +207,7 @@ node test.js
 ```
 
 ```
-Assertions passed: 250
+Assertions passed: 268
 Assertions failed: 0
 ALL PASS
 ```
